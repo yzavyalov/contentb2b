@@ -41,4 +41,18 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    public function contentManager(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => \App\Enums\UserRole::CONTENT_MANAGER,
+        ]);
+    }
+
+    public function contentSupervisor(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => \App\Enums\UserRole::CONTENT_SUPERVISOR,
+        ]);
+    }
 }

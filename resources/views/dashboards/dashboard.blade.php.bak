@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="dark">
+
+<head>
+
+    <meta charset="utf-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>
+        {{ $title ?? 'Dashboard' }} — wrangle.win
+    </title>
+
+
+    {{-- Apply the saved theme before CSS is painted to avoid a flash of the wrong theme. --}}
+    <script>
+        (() => {
+            const storageKey = 'wrangle-theme';
+            const saved = localStorage.getItem(storageKey) || 'dark';
+            const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const resolved = saved === 'system' ? (systemDark ? 'dark' : 'light') : saved;
+
+            document.documentElement.dataset.theme = resolved;
+            document.documentElement.dataset.themePreference = saved;
+        })();
+    </script>
+
+    <style>
+        :root {
+            color-scheme: dark;
+            --wr-page: #06111f;
+            --wr-sidebar: #081523;
+            --wr-panel: #0b192a;
+            --wr-panel-secondary: #07111f;
+            --wr-hover: #10233a;
+            --wr-border: #1c344d;
+            --wr-border-strong: #2c4965;
+            --wr-text: #ffffff;
+            --wr-text-soft: #cbd5e1;
+            --wr-muted: #94a3b8;
+            --wr-muted-soft: #64748b;
+            --wr-input: #07111f;
+            --wr-topbar: rgba(6, 17, 31, .90);
+        }
+
+        html[data-theme="light"] {
+            color-scheme: light;
+            --wr-page: #f3f6fa;
+            --wr-sidebar: #ffffff;
+            --wr-panel: #ffffff;
+            --wr-panel-secondary: #f8fafc;
+            --wr-hover: #eef2f7;
+            --wr-border: #dbe3ec;
+            --wr-border-strong: #c6d2df;
+            --wr-text: #0f172a;
+            --wr-text-soft: #334155;
+            --wr-muted: #64748b;
+            --wr-muted-soft: #94a3b8;
+            --wr-input: #f8fafc;
+            --wr-topbar: rgba(243, 246, 250, .92);
+        }
+
+        html[data-theme="dark"] {
+            color-scheme: dark;
+        }
+
+        body {
+            background: var(--wr-page);
+            color: var(--wr-text);
+            transition: background-color .15s ease, color .15s ease;
+        }
+
+        /* Compatibility layer for existing dark-only dashboard components. */
+        html[data-theme="light"] [class~="bg-[#06111f]"],
+        html[data-theme="light"] [class~="bg-[#081523]"],
+        html[data-theme="light"] [class~="bg-[#0b192a]"] {
+            background-color: var(--wr-panel) !important;
+        }
+
+        html[data-theme="light"] [class~="bg-[#07111f]"] {
+            background-color: var(--wr-panel-secondary) !important;
+        }
+
+        html[data-theme="light"] [class~="bg-[#081726]/95"] {
+            background-color: rgba(255, 255, 255, .96) !important;
+        }
+
+        html[data-theme="light"] [class~="text-white"] {
+            color: var(--wr-text) !important;
+        }
+
+        html[data-theme="light"] [class~="text-slate-300"] { color: #334155 !important; }
+        html[data-theme="light"] [class~="text-slate-400"] { color: #475569 !important; }
+        html[data-theme="light"] [class~="text-slate-500"] { color: #64748b !important; }
+        html[data-theme="light"] [class~="text-slate-600"] { color: #94a3b8 !important; }
+
+        html[data-theme="light"] [class~="border-white/5"],
+        html[data-theme="light"] [class~="border-white/10"],
+        html[data-theme="light"] [class~="border-[#1c344d]"],
+        html[data-theme="light"] [class~="border-[#2c4965]"] {
+            border-color: var(--wr-border) !important;
+        }
+
+        html[data-theme="light"] [class~="bg-white/[0.04]"],
+        html[data-theme="light"] [class~="bg-white/[0.05]"] {
+            background-color: #f1f5f9 !important;
+        }
+
+        html[data-theme="light"] input,
+        html[data-theme="light"] select,
+        html[data-theme="light"] textarea {
+            color: #0f172a;
+        }
+
+        html[data-theme="light"] input::placeholder,
+        html[data-theme="light"] textarea::placeholder {
+            color: #94a3b8;
+        }
+
+        .wr-theme-select {
+            appearance: none;
+            background-color: var(--wr-panel);
+            border: 1px solid var(--wr-border-strong);
+            color: var(--wr-text-soft);
+        }
+
+        .wr-theme-select:hover,
+        .wr-theme-select:focus {
+            border-color: #84cc16;
+            outline: none;
+        }
+    </style>
+
+
+    @vite([
+        'resources/css/app.css',
+        'resources/js/app.js'
+    ])
+
+
+    @livewireStyles
+
+</head>
+
+
+<body
+    class="
+        min-h-screen
+        bg-[var(--wr-page)]
+        text-[var(--wr-text)]
+        antialiased
+    "
+>
+
+<div class="min-h-screen">
+
+
+    {{-- ========================================================= --}}
+    {{-- SIDEBAR --}}
+    {{-- ========================================================= --}}
+
+    <aside
+        class="
+            fixed
+            inset-y-0
+            left-0
+            z-40
+
+            hidden
+            w-[260px]
+
+            border-r
+            border-[var(--wr-border)]
+
+            bg-[var(--wr-sidebar)]
+
+            lg:block
+        "
+    >
+
+        <div
+            class="
+                flex
+                h-full
+                flex-col
+            "
+        >
+
+
+            {{-- ================================================= --}}
+            {{-- LOGO --}}
+            {{-- ================================================= --}}
+
+            <div
+                class="
+                    flex
+                    h-20
+                    shrink-0
+                    items-center
+
+                    border-b
+                    border-[var(--wr-border)]
+
+                    px-6
+                "
+            >
+
+                <a
+                    href="{{ route('dashboard') }}"
+                    class="
+                        text-2xl
+                        font-black
+                        tracking-tight
+                        text-[var(--wr-text)]
+                    "
+                >
+                    wrangle<span class="text-lime-400">.win</span>
+                </a>
+
+            </div>
+
+
+
+            {{-- ================================================= --}}
+            {{-- NAVIGATION --}}
+            {{-- ================================================= --}}
+
+            <nav
+                class="
+                    flex-1
+                    overflow-y-auto
+
+                    px-4
+                    py-6
+                "
+            >
+
+
+                {{-- ================================================= --}}
+                {{-- MAIN --}}
+                {{-- ================================================= --}}
+
+                <div class="space-y-1">
+
+
+                    {{-- Dashboard --}}
+
+                    <a
+                        href="{{ route('dashboard') }}"
+                        class="
+                            flex
+                            items-center
+                            gap-3
+
+                            rounded-xl
+
+                            px-4
+                            py-3
+
+                            text-sm
+                            font-semibold
+
+                            transition
+
+                            {{ request()->routeIs('dashboard')
+                                ? 'bg-lime-400 text-[#06111f]'
+                                : 'text-[var(--wr-muted)] hover:bg-[var(--wr-hover)] hover:text-[var(--wr-text)]'
+                            }}
+                        "
+                    >
+                        Dashboard
+                    </a>
+
+                </div>
+
+
+
+                {{-- ================================================= --}}
+                {{-- CONTENT --}}
+                {{-- ================================================= --}}
+
+                @if(
+                    auth()->user()->isAdmin()
+                    || auth()->user()->isContentManager()
+                    || auth()->user()->isContentSupervisor()
+                )
+
+                    <div
+                        class="
+                            px-4
+                            pb-2
+                            pt-7
+
+                            text-[10px]
+                            font-black
+                            uppercase
+                            tracking-[0.18em]
+
+                            text-[var(--wr-muted-soft)]
+                        "
+                    >
+                        Content
+                    </div>
+
+
+                    <div class="space-y-1">
+
+
+                        {{-- Markets --}}
+
+                        <a
+                            href="{{ route('content.markets.index') }}"
+                            class="
+                                flex
+                                items-center
+                                gap-3
+
+                                rounded-xl
+
+                                px-4
+                                py-3
+
+                                text-sm
+                                font-semibold
+
+                                transition
+
+                                {{ request()->routeIs('content.markets.index')
+                                    ? 'bg-lime-400 text-[#06111f]'
+                                    : 'text-[var(--wr-muted)] hover:bg-[var(--wr-hover)] hover:text-[var(--wr-text)]'
+                                }}
+                            "
+                        >
+                            Markets
+                        </a>
+
+
+
+                        {{-- Bets --}}
+
+                        <a
+                            href="{{ route('content.bets.index') }}"
+                            class="
+                                flex
+                                items-center
+                                gap-3
+
+                                rounded-xl
+
+                                px-4
+                                py-3
+
+                                text-sm
+                                font-semibold
+
+                                transition
+
+                                {{ request()->routeIs('content.bets.index')
+                                    || request()->routeIs('content.bets.show')
+                                    || request()->routeIs('content.bets.edit')
+                                    ? 'bg-lime-400 text-[#06111f]'
+                                    : 'text-[var(--wr-muted)] hover:bg-[var(--wr-hover)] hover:text-[var(--wr-text)]'
+                                }}
+                            "
+                        >
+                            Bets
+                        </a>
+
+
+
+                        {{-- Create Bet --}}
+
+                        @if(
+                                auth()->user()->isAdmin()
+                                || auth()->user()->isContentManager()
+                                || auth()->user()->isContentSupervisor()
+                            )
+
+                            <a
+                                href="{{ route('content.bets.create') }}"
+                                class="
+                                    flex
+                                    items-center
+                                    gap-3
+
+                                    rounded-xl
+
+                                    px-4
+                                    py-3
+
+                                    text-sm
+                                    font-semibold
+
+                                    transition
+
+                                    {{ request()->routeIs('content.bets.create')
+                                        ? 'bg-lime-400 text-[#06111f]'
+                                        : 'text-[var(--wr-muted)] hover:bg-[var(--wr-hover)] hover:text-[var(--wr-text)]'
+                                    }}
+                                "
+                            >
+
+                                <span class="text-base leading-none">
+                                    +
+                                </span>
+
+                                Create Bet
+
+                            </a>
+
+                        @endif
+
+
+                    </div>
+
+                @endif
+
+
+
+                {{-- ================================================= --}}
+                {{-- ADMINISTRATION --}}
+                {{-- ================================================= --}}
+
+                @if(auth()->user()->isAdmin())
+
+                    <div
+                        class="
+                            px-4
+                            pb-2
+                            pt-7
+
+                            text-[10px]
+                            font-black
+                            uppercase
+                            tracking-[0.18em]
+
+                            text-[var(--wr-muted-soft)]
+                        "
+                    >
+                        Administration
+                    </div>
+
+
+                    <div class="space-y-1">
+
+
+                        {{-- Users --}}
+
+                        <a
+                            href="{{ route('admin.users.index') }}"
+                            class="
+                                flex
+                                items-center
+                                gap-3
+
+                                rounded-xl
+
+                                px-4
+                                py-3
+
+                                text-sm
+                                font-semibold
+
+                                transition
+
+                                {{ request()->routeIs('admin.users.*')
+                                    || request()->routeIs('admin.merchants.*')
+                                    ? 'bg-lime-400 text-[#06111f]'
+                                    : 'text-[var(--wr-muted)] hover:bg-[var(--wr-hover)] hover:text-[var(--wr-text)]'
+                                }}
+                            "
+                        >
+                            Users
+                        </a>
+
+
+
+                        {{-- Pages --}}
+
+                        <a
+                            href="{{ route('admin.pages.index') }}"
+                            class="
+                                flex
+                                items-center
+                                gap-3
+
+                                rounded-xl
+
+                                px-4
+                                py-3
+
+                                text-sm
+                                font-semibold
+
+                                transition
+
+                                {{ request()->routeIs('admin.pages.*')
+                                    ? 'bg-lime-400 text-[#06111f]'
+                                    : 'text-[var(--wr-muted)] hover:bg-[var(--wr-hover)] hover:text-[var(--wr-text)]'
+                                }}
+                            "
+                        >
+                            Pages
+                        </a>
+
+
+                    </div>
+
+                @endif
+
+
+
+                {{-- ================================================= --}}
+                {{-- FINANCE --}}
+                {{-- ================================================= --}}
+
+                @if(
+                    auth()->user()->isAdmin()
+                    || auth()->user()->isFinancialManager()
+                )
+
+                    <div
+                        class="
+                            px-4
+                            pb-2
+                            pt-7
+
+                            text-[10px]
+                            font-black
+                            uppercase
+                            tracking-[0.18em]
+
+                            text-[var(--wr-muted-soft)]
+                        "
+                    >
+                        Finance
+                    </div>
+
+
+                    <div class="space-y-1">
+
+                        <a
+                            href="#"
+                            class="
+                                flex
+                                items-center
+                                gap-3
+
+                                rounded-xl
+
+                                px-4
+                                py-3
+
+                                text-sm
+                                font-semibold
+
+                                text-[var(--wr-muted)]
+
+                                transition
+
+                                hover:bg-[var(--wr-hover)]
+                                hover:text-[var(--wr-text)]
+                            "
+                        >
+                            Reports
+                        </a>
+
+                    </div>
+
+                @endif
+
+
+
+                {{-- ================================================= --}}
+                {{-- MERCHANT --}}
+                {{-- ================================================= --}}
+
+                @if(
+                    auth()->user()->isAdmin()
+                    || auth()->user()->isMerchant()
+                )
+
+                    <div
+                        class="
+                            px-4
+                            pb-2
+                            pt-7
+
+                            text-[10px]
+                            font-black
+                            uppercase
+                            tracking-[0.18em]
+
+                            text-[var(--wr-muted-soft)]
+                        "
+                    >
+                        Merchant
+                    </div>
+
+
+                    <div class="space-y-1">
+
+
+                        <a
+                            href="#"
+                            class="
+                                flex
+                                items-center
+                                gap-3
+
+                                rounded-xl
+
+                                px-4
+                                py-3
+
+                                text-sm
+                                font-semibold
+
+                                text-[var(--wr-muted)]
+
+                                transition
+
+                                hover:bg-[var(--wr-hover)]
+                                hover:text-[var(--wr-text)]
+                            "
+                        >
+                            API Keys
+                        </a>
+
+
+                        <a
+                            href="#"
+                            class="
+                                flex
+                                items-center
+                                gap-3
+
+                                rounded-xl
+
+                                px-4
+                                py-3
+
+                                text-sm
+                                font-semibold
+
+                                text-[var(--wr-muted)]
+
+                                transition
+
+                                hover:bg-[var(--wr-hover)]
+                                hover:text-[var(--wr-text)]
+                            "
+                        >
+                            Webhooks
+                        </a>
+
+
+                        <a
+                            href="#"
+                            class="
+                                flex
+                                items-center
+                                gap-3
+
+                                rounded-xl
+
+                                px-4
+                                py-3
+
+                                text-sm
+                                font-semibold
+
+                                text-[var(--wr-muted)]
+
+                                transition
+
+                                hover:bg-[var(--wr-hover)]
+                                hover:text-[var(--wr-text)]
+                            "
+                        >
+                            Billing
+                        </a>
+
+
+                    </div>
+
+                @endif
+
+
+            </nav>
+
+
+
+            {{-- ================================================= --}}
+            {{-- USER BLOCK --}}
+            {{-- ================================================= --}}
+
+            <div
+                class="
+                    shrink-0
+
+                    border-t
+                    border-[var(--wr-border)]
+
+                    p-4
+                "
+            >
+
+                <div
+                    class="
+                        rounded-xl
+
+                        border
+                        border-white/5
+
+                        bg-[var(--wr-panel)]
+
+                        p-4
+                    "
+                >
+
+
+                    <div
+                        class="
+                            truncate
+                            text-sm
+                            font-black
+                            text-[var(--wr-text)]
+                        "
+                    >
+                        {{ auth()->user()->name }}
+                    </div>
+
+
+                    <div
+                        class="
+                            mt-1
+                            truncate
+                            text-xs
+                            text-[var(--wr-muted)]
+                        "
+                    >
+                        {{ auth()->user()->email }}
+                    </div>
+
+
+                    <div
+                        class="
+                            mt-3
+
+                            text-[10px]
+                            font-black
+                            uppercase
+                            tracking-[0.15em]
+
+                            text-lime-400
+                        "
+                    >
+                        {{ auth()->user()->role->label() }}
+                    </div>
+
+
+                </div>
+
+            </div>
+
+
+        </div>
+
+    </aside>
+
+
+
+    {{-- ========================================================= --}}
+    {{-- MAIN --}}
+    {{-- ========================================================= --}}
+
+    <div class="lg:pl-[260px]">
+
+
+        {{-- ===================================================== --}}
+        {{-- TOPBAR --}}
+        {{-- ===================================================== --}}
+
+        <header
+            class="
+                sticky
+                top-0
+                z-30
+
+                flex
+                h-20
+
+                items-center
+                justify-between
+
+                border-b
+                border-[var(--wr-border)]
+
+                bg-[var(--wr-topbar)]
+
+                px-5
+
+                backdrop-blur-xl
+
+                lg:px-8
+            "
+        >
+
+
+            {{-- Title / Mobile Logo --}}
+
+            <div
+                class="
+                    flex
+                    min-w-0
+                    items-center
+                    gap-4
+                "
+            >
+
+
+                {{-- Mobile Logo --}}
+
+                <a
+                    href="{{ route('dashboard') }}"
+                    class="
+                        shrink-0
+
+                        text-xl
+                        font-black
+                        tracking-tight
+                        text-[var(--wr-text)]
+
+                        lg:hidden
+                    "
+                >
+                    wrangle<span class="text-lime-400">.win</span>
+                </a>
+
+
+                {{-- Desktop Page Title --}}
+
+                <div
+                    class="
+                        hidden
+                        min-w-0
+                        lg:block
+                    "
+                >
+
+                    <h1
+                        class="
+                            truncate
+                            text-lg
+                            font-black
+                            text-[var(--wr-text)]
+                        "
+                    >
+                        {{ $title ?? 'Dashboard' }}
+                    </h1>
+
+                </div>
+
+
+            </div>
+
+
+
+            {{-- ================================================= --}}
+            {{-- TOPBAR ACTIONS --}}
+            {{-- ================================================= --}}
+
+            <div
+                class="
+                    flex
+                    items-center
+                    gap-3
+                "
+            >
+
+
+                {{-- Theme --}}
+
+                <div class="relative">
+                    <label for="wr-theme-select" class="sr-only">Theme</label>
+                    <select
+                        id="wr-theme-select"
+                        class="wr-theme-select cursor-pointer rounded-xl px-3 py-2.5 pr-8 text-sm font-semibold transition"
+                        aria-label="Color theme"
+                    >
+                        <option value="dark">🌙 Dark</option>
+                        <option value="light">☀️ Light</option>
+                        <option value="system">◐ System</option>
+                    </select>
+                </div>
+
+
+                {{-- Profile --}}
+
+                <a
+                    href="{{ route('profile.edit') }}"
+                    class="
+                        rounded-xl
+
+                        border
+                        border-[var(--wr-border-strong)]
+
+                        bg-[var(--wr-panel)]
+
+                        px-4
+                        py-2.5
+
+                        text-sm
+                        font-semibold
+                        text-[var(--wr-text-soft)]
+
+                        transition
+
+                        hover:border-lime-500/50
+                        hover:text-[var(--wr-text)]
+                    "
+                >
+                    Profile
+                </a>
+
+
+
+                {{-- Logout --}}
+
+                <form
+                    method="POST"
+                    action="{{ route('logout') }}"
+                >
+
+                    @csrf
+
+
+                    <button
+                        type="submit"
+                        class="
+                            rounded-xl
+
+                            bg-lime-400
+
+                            px-4
+                            py-2.5
+
+                            text-sm
+                            font-black
+                            text-[#06111f]
+
+                            transition
+
+                            hover:bg-lime-300
+                        "
+                    >
+                        Sign out
+                    </button>
+
+                </form>
+
+
+            </div>
+
+
+        </header>
+
+
+
+        {{-- ===================================================== --}}
+        {{-- PAGE CONTENT --}}
+        {{-- ===================================================== --}}
+
+        <main
+            class="
+                min-h-[calc(100vh-80px)]
+
+                p-5
+
+                lg:p-8
+            "
+        >
+
+
+            {{-- ================================================= --}}
+            {{-- FLASH STATUS --}}
+            {{-- ================================================= --}}
+
+            @if(session('status'))
+
+                <div
+                    class="
+                        mb-6
+
+                        rounded-2xl
+
+                        border
+                        border-lime-400/20
+
+                        bg-lime-400/10
+
+                        px-5
+                        py-4
+
+                        text-sm
+                        font-bold
+                        text-lime-300
+                    "
+                >
+                    {{ session('status') }}
+                </div>
+
+            @endif
+
+
+
+            {{-- ================================================= --}}
+            {{-- FLASH ERROR --}}
+            {{-- ================================================= --}}
+
+            @if(session('error'))
+
+                <div
+                    class="
+                        mb-6
+
+                        rounded-2xl
+
+                        border
+                        border-red-400/20
+
+                        bg-red-400/10
+
+                        px-5
+                        py-4
+
+                        text-sm
+                        font-bold
+                        text-red-300
+                    "
+                >
+                    {{ session('error') }}
+                </div>
+
+            @endif
+
+
+
+            {{-- ================================================= --}}
+            {{-- SLOT / BLADE CONTENT --}}
+            {{-- ================================================= --}}
+
+            {{ $slot ?? '' }}
+
+            @yield('content')
+
+
+        </main>
+
+
+    </div>
+
+
+</div>
+
+
+<script>
+    (() => {
+        const storageKey = 'wrangle-theme';
+        const select = document.getElementById('wr-theme-select');
+        const media = window.matchMedia('(prefers-color-scheme: dark)');
+
+        const getPreference = () => localStorage.getItem(storageKey) || 'dark';
+
+        const applyTheme = (preference) => {
+            const resolved = preference === 'system'
+                ? (media.matches ? 'dark' : 'light')
+                : preference;
+
+            document.documentElement.dataset.theme = resolved;
+            document.documentElement.dataset.themePreference = preference;
+
+            if (select) {
+                select.value = preference;
+            }
+        };
+
+        applyTheme(getPreference());
+
+        select?.addEventListener('change', (event) => {
+            const preference = event.target.value;
+            if (! ['dark', 'light', 'system'].includes(preference)) return;
+
+            localStorage.setItem(storageKey, preference);
+            applyTheme(preference);
+        });
+
+        media.addEventListener?.('change', () => {
+            if (getPreference() === 'system') applyTheme('system');
+        });
+
+        document.addEventListener('livewire:navigated', () => {
+            applyTheme(getPreference());
+        });
+    })();
+</script>
+
+@livewireScripts
+
+</body>
+
+</html>
