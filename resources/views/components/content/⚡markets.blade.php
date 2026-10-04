@@ -5,7 +5,7 @@ use App\Enums\UserRole;
 use App\Models\Bet;
 use Carbon\Carbon;
 use Livewire\Component;
-use App\Jobs\ResolveBetWithAi;
+use Illuminate\Support\Facades\Artisan;
 
 
 new class extends Component
@@ -287,38 +287,44 @@ new class extends Component
             403
         );
 
-        $queued = 0;
+        /*
+         * Use the same command as the scheduler.
+         *
+         * This keeps the manual UI action and automatic processing
+         * on exactly the same lifecycle:
+         *
+         * published -> resolving
+         * ResolveBetWithAi
+         * SendMarketResolvingToMerchant
+         */
+        $exitCode = Artisan::call('bets:process-finished');
 
-        Bet::query()
-            ->whereNotNull('finish_at')
-            ->where('finish_at', '<=', now())
-            ->where('status', BetStatus::PUBLISHED->value)
-            ->select('id')
-            ->orderBy('id')
-            ->chunkById(100, function ($bets) use (&$queued) {
-                foreach ($bets as $bet) {
-                    $updated = Bet::query()
-                        ->whereKey($bet->id)
-                        ->where('status', BetStatus::PUBLISHED->value)
-                        ->update([
-                            'status' => BetStatus::RESOLVING->value,
-                        ]);
+        if ($exitCode !== 0) {
+            session()->flash(
+                'status',
+                'Finished market processing failed. Please check the application logs.'
+            );
 
-                    if (! $updated) {
-                        continue;
-                    }
+            return;
+        }
 
-                    ResolveBetWithAi::dispatch($bet->id);
+        $output = trim(Artisan::output());
 
-                    $queued++;
-                }
-            });
+        preg_match(
+            '/Markets moved to resolving:\s*(\d+)/',
+            $output,
+            $matches
+        );
+
+        $processed = isset($matches[1])
+            ? (int) $matches[1]
+            : 0;
 
         session()->flash(
             'status',
-            $queued > 0
-                ? $queued . ' finished bets sent for AI resolution.'
-                : 'No finished published bets require resolution.'
+            $processed > 0
+                ? $processed . ' finished markets moved to resolving.'
+                : 'No finished bets require resolution.'
         );
     }
 
