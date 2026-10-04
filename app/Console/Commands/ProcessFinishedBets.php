@@ -13,7 +13,8 @@ use Throwable;
 
 class ProcessFinishedBets extends Command
 {
-    protected $signature = 'bets:process-finished';
+    protected $signature = 'bets:process-finished
+                            {--bet= : Process only the specified Bet ID}';
 
     protected $description =
         'Move finished published markets to resolving and start resolution processing';
@@ -22,10 +23,25 @@ class ProcessFinishedBets extends Command
     {
         $processed = 0;
 
-        Bet::query()
+        /*
+         * By default the command processes all finished published markets.
+         *
+         * For testing/debugging a single market can be processed with:
+         *
+         * php artisan bets:process-finished --bet=579
+         */
+        $betId = $this->option('bet');
+
+        $query = Bet::query()
             ->where('status', BetStatus::PUBLISHED->value)
             ->whereNotNull('finish_at')
-            ->where('finish_at', '<=', now())
+            ->where('finish_at', '<=', now());
+
+        if ($betId !== null) {
+            $query->whereKey((int) $betId);
+        }
+
+        $query
             ->orderBy('id')
             ->chunkById(100, function ($bets) use (&$processed) {
                 foreach ($bets as $bet) {
