@@ -27,3 +27,24 @@ Artisan::command('inspire', function () {
 Schedule::command('billing:process')
     ->hourly()
     ->withoutOverlapping();
+
+
+/*
+|--------------------------------------------------------------------------
+| Finished Markets Scheduler
+|--------------------------------------------------------------------------
+|
+| Every 15 minutes find published markets whose finish time has passed.
+|
+| The command atomically moves them from Published to Resolving,
+| starts AI resolution analysis and notifies merchants that received
+| the market.
+|
+| AI only prepares a recommendation. Final resolution is performed
+| manually by Content Supervisor or Super Admin.
+|
+*/
+
+Schedule::command('bets:process-finished')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping();
