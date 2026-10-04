@@ -1,4 +1,4 @@
-    <?php
+<?php
 
 use App\Enums\UserRole;
 use App\Models\Bet;
@@ -6,7 +6,7 @@ use App\Models\User;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Enums\BetStatus;
-use App\Jobs\ResolveBetWithAi;
+use Illuminate\Support\Facades\Artisan;
 
 
 new class extends Component
@@ -375,37 +375,43 @@ new class extends Component
             403
         );
 
-        $queued = 0;
+        /*
+         * Use the same command as the scheduler.
+         *
+         * This keeps the manual UI action and automatic processing
+         * on exactly the same lifecycle:
+         *
+         * published -> resolving
+         * ResolveBetWithAi
+         * SendMarketResolvingToMerchant
+         */
+        $exitCode = Artisan::call('bets:process-finished');
 
-        Bet::query()
-            ->whereNotNull('finish_at')
-            ->where('finish_at', '<=', now())
-            ->where('status', BetStatus::PUBLISHED->value)
-            ->select('id')
-            ->orderBy('id')
-            ->chunkById(100, function ($bets) use (&$queued) {
-                foreach ($bets as $bet) {
-                    $updated = Bet::query()
-                        ->whereKey($bet->id)
-                        ->where('status', BetStatus::PUBLISHED->value)
-                        ->update([
-                            'status' => BetStatus::RESOLVING->value,
-                        ]);
+        if ($exitCode !== 0) {
+            session()->flash(
+                'status',
+                'Finished market processing failed. Please check the application logs.'
+            );
 
-                    if (! $updated) {
-                        continue;
-                    }
+            return;
+        }
 
-                    ResolveBetWithAi::dispatch($bet->id);
+        $output = trim(Artisan::output());
 
-                    $queued++;
-                }
-            });
+        preg_match(
+            '/Markets moved to resolving:\s*(\d+)/',
+            $output,
+            $matches
+        );
+
+        $processed = isset($matches[1])
+            ? (int) $matches[1]
+            : 0;
 
         session()->flash(
             'status',
-            $queued > 0
-                ? $queued . ' finished bets sent to the AI resolution queue.'
+            $processed > 0
+                ? $processed . ' finished markets moved to resolving.'
                 : 'No finished bets require resolution.'
         );
     }
@@ -1029,8 +1035,8 @@ new class extends Component
                 {{-- Previous --}}
                 @if($bets->onFirstPage())
                     <span class="cursor-not-allowed rounded-xl border border-[var(--wr-border)] px-4 py-2 text-sm font-bold opacity-40">
-                    ← Previous
-                </span>
+                        ← Previous
+                    </span>
                 @else
                     <button
                         type="button"
@@ -1047,8 +1053,8 @@ new class extends Component
                 @foreach(range(1, $bets->lastPage()) as $page)
                     @if($page === $bets->currentPage())
                         <span class="flex h-10 min-w-10 items-center justify-center rounded-xl bg-lime-400 px-3 text-sm font-black text-[#06111f]">
-                        {{ $page }}
-                    </span>
+                            {{ $page }}
+                        </span>
                     @else
                         <button
                             type="button"
@@ -1074,8 +1080,8 @@ new class extends Component
                     </button>
                 @else
                     <span class="cursor-not-allowed rounded-xl border border-[var(--wr-border)] px-4 py-2 text-sm font-bold opacity-40">
-                    Next →
-                </span>
+                        Next →
+                    </span>
                 @endif
 
             </div>
