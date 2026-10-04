@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\BetStatus;
+use App\Jobs\SendMarketCancelledToMerchant;
 use App\Jobs\SendMarketResolvedToMerchant;
 use App\Models\Bet;
 use App\Models\Category;
@@ -1224,6 +1225,11 @@ new class extends Component
             return;
         }
 
+        /*
+         * A resolved market may only be created through
+         * the Final settlement panel, where the winning
+         * answer is explicitly selected.
+         */
         if ($status === BetStatus::RESOLVED) {
             $this->addError(
                 'supervisorStatus',
@@ -1233,98 +1239,208 @@ new class extends Component
             return;
         }
 
-        $bet = Bet::query()
-            ->findOrFail($this->betId);
+        $merchantBetIdsToCancel = [];
+        $isPublishing = false;
+        $statusChanged = false;
 
-        /*
- * Запоминаем предыдущий статус.
- *
- * Auto Delivery должен запускаться только в момент
- * первого фактического перехода в PUBLISHED.
- */
-        $previousStatus = $bet->status;
-
-        $previousStatusValue = $previousStatus instanceof \BackedEnum
-            ? $previousStatus->value
-            : (string) $previousStatus;
-
-        $isPublishing =
-            $status === BetStatus::PUBLISHED
-            && $previousStatusValue !== BetStatus::PUBLISHED->value;
-
-        $bet->status = $status;
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUPERVISOR
-        |--------------------------------------------------------------------------
-        */
-
-        $bet->supervisor_user_id =
-            auth()->id();
-
-        /*
-        |--------------------------------------------------------------------------
-        | TIMESTAMPS
-        |--------------------------------------------------------------------------
-        */
-
-        if ($status === BetStatus::APPROVED) {
-
-            $bet->approved_at = now();
-
-            $bet->rejected_at = null;
-        }
-
-        if ($status === BetStatus::REJECTED) {
-
-            $bet->rejected_at = now();
-
-            $bet->approved_at = null;
-        }
-
-        if ($status === BetStatus::PUBLISHED) {
-
-            $bet->published_at ??= now();
-        }
-
-        if ($status === BetStatus::RESOLVED) {
-
-            $bet->resolved_at ??= now();
-        }
-
-        if (
-            in_array(
-                $status,
-                [
-                    BetStatus::DRAFT,
-                    BetStatus::PENDING_REVIEW,
-                ],
-                true
-            )
+        $result = DB::transaction(function () use (
+            $status,
+            &$merchantBetIdsToCancel,
+            &$isPublishing,
+            &$statusChanged
         ) {
-            $bet->approved_at = null;
-            $bet->rejected_at = null;
+            /*
+             * Lock the market while changing its workflow status.
+             * This prevents a supervisor action from racing with
+             * automatic PUBLISHED -> RESOLVING processing.
+             */
+            $bet = Bet::query()
+                ->lockForUpdate()
+                ->findOrFail($this->betId);
+
+            $previousStatus = $bet->status instanceof BetStatus
+                ? $bet->status
+                : BetStatus::tryFrom((string) $bet->status);
+
+            if (! $previousStatus) {
+                return [
+                    'ok' => false,
+                    'message' => 'The market has an invalid current status.',
+                ];
+            }
+
+            /*
+             * Once resolution has started, cancellation is forbidden.
+             */
+            if (
+                $status === BetStatus::CANCELLED
+                && in_array(
+                    $previousStatus,
+                    [
+                        BetStatus::RESOLVING,
+                        BetStatus::RESOLVED,
+                    ],
+                    true
+                )
+            ) {
+                return [
+                    'ok' => false,
+                    'message' =>
+                        'A resolving or resolved market cannot be cancelled.',
+                ];
+            }
+
+            /*
+             * Cancellation is a controlled workflow transition.
+             *
+             * APPROVED:
+             * the market may be cancelled before publication.
+             *
+             * PUBLISHED:
+             * the market may be cancelled and every merchant that
+             * already received it must receive market.cancelled.
+             *
+             * CANCELLED:
+             * repeated update is a no-op and must not resend callbacks.
+             */
+            if (
+                $status === BetStatus::CANCELLED
+                && ! in_array(
+                    $previousStatus,
+                    [
+                        BetStatus::APPROVED,
+                        BetStatus::PUBLISHED,
+                        BetStatus::CANCELLED,
+                    ],
+                    true
+                )
+            ) {
+                return [
+                    'ok' => false,
+                    'message' =>
+                        'Only an approved or published market can be cancelled.',
+                ];
+            }
+
+            /*
+             * Do not perform workflow side effects when the status
+             * has not actually changed.
+             */
+            if ($previousStatus === $status) {
+                return [
+                    'ok' => true,
+                    'message' => 'Bet status is already up to date.',
+                ];
+            }
+
+            $statusChanged = true;
+
+            $isPublishing =
+                $status === BetStatus::PUBLISHED
+                && $previousStatus !== BetStatus::PUBLISHED;
+
+            /*
+             * Collect recipients before changing the Bet status.
+             * Only merchants that actually received the market
+             * should receive market.cancelled.
+             */
+            if (
+                $status === BetStatus::CANCELLED
+                && $previousStatus === BetStatus::PUBLISHED
+            ) {
+                $merchantBetIdsToCancel = $bet->merchantBets()
+                    ->whereNotNull('delivered_at')
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
+            }
+
+            $bet->status = $status;
+            $bet->supervisor_user_id = auth()->id();
+
+            /*
+            |--------------------------------------------------------------------------
+            | TIMESTAMPS
+            |--------------------------------------------------------------------------
+            */
+
+            if ($status === BetStatus::APPROVED) {
+                $bet->approved_at = now();
+                $bet->rejected_at = null;
+            }
+
+            if ($status === BetStatus::REJECTED) {
+                $bet->rejected_at = now();
+                $bet->approved_at = null;
+            }
+
+            if ($status === BetStatus::PUBLISHED) {
+                $bet->published_at ??= now();
+            }
+
+            if (
+                in_array(
+                    $status,
+                    [
+                        BetStatus::DRAFT,
+                        BetStatus::PENDING_REVIEW,
+                    ],
+                    true
+                )
+            ) {
+                $bet->approved_at = null;
+                $bet->rejected_at = null;
+            }
+
+            $bet->save();
+
+            return [
+                'ok' => true,
+                'message' => $status === BetStatus::CANCELLED
+                    ? 'Market cancelled successfully.'
+                    : 'Bet status updated.',
+            ];
+        });
+
+        if (! $result['ok']) {
+            $this->addError(
+                'supervisorStatus',
+                $result['message']
+            );
+
+            return;
         }
 
-        $bet->save();
+        /*
+         * Auto Delivery starts only after a real transition
+         * into PUBLISHED.
+         */
+        if ($statusChanged && $isPublishing) {
+            ProcessAutomaticMarketDelivery::dispatch(
+                $this->betId
+            )->afterCommit();
+        }
 
         /*
- * Запускаем Auto Delivery только при переходе
- * из другого статуса в PUBLISHED.
- *
- * Если market уже был PUBLISHED и его просто
- * сохранили повторно — Auto Delivery не запускается.
- */
-        if ($isPublishing) {
-            ProcessAutomaticMarketDelivery::dispatch(
-                $bet->id
-            )->afterCommit();
+         * Notify only merchants that had already received
+         * the market before it was cancelled.
+         *
+         * The job itself is also idempotent.
+         */
+        if (
+            $statusChanged
+            && $status === BetStatus::CANCELLED
+        ) {
+            foreach ($merchantBetIdsToCancel as $merchantBetId) {
+                SendMarketCancelledToMerchant::dispatch(
+                    $merchantBetId
+                )->afterCommit();
+            }
         }
 
         session()->flash(
             'status',
-            'Bet status updated.'
+            $result['message']
         );
     }
 
