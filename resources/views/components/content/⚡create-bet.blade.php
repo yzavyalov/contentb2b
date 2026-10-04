@@ -1156,7 +1156,6 @@ new class extends Component
                 });
             })
             ->orderBy('name')
-            ->limit(50)
             ->get();
 
         $selectedCountries = empty($this->countryIds)
