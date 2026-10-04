@@ -1,4 +1,4 @@
-<?php
+    <?php
 
 use App\Enums\UserRole;
 use App\Models\Bet;
@@ -1011,8 +1011,75 @@ new class extends Component
 
 
     {{-- PAGINATION --}}
-    <div class="mt-5">
-        {{ $bets->links() }}
-    </div>
+    @if($bets->hasPages())
+        <div class="mt-5 flex flex-col gap-4 rounded-2xl border border-[var(--wr-border)] bg-[var(--wr-card)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+
+            <div class="text-sm font-semibold text-[var(--wr-muted)]">
+                Showing
+                <span class="font-black text-[var(--wr-text)]">{{ $bets->firstItem() }}</span>
+                –
+                <span class="font-black text-[var(--wr-text)]">{{ $bets->lastItem() }}</span>
+                of
+                <span class="font-black text-[var(--wr-text)]">{{ $bets->total() }}</span>
+                markets
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+
+                {{-- Previous --}}
+                @if($bets->onFirstPage())
+                    <span class="cursor-not-allowed rounded-xl border border-[var(--wr-border)] px-4 py-2 text-sm font-bold opacity-40">
+                    ← Previous
+                </span>
+                @else
+                    <button
+                        type="button"
+                        wire:click="previousPage"
+                        wire:loading.attr="disabled"
+                        class="rounded-xl border border-[var(--wr-border)] px-4 py-2 text-sm font-bold text-[var(--wr-text)] transition hover:border-lime-400/40 hover:text-lime-400"
+                    >
+                        ← Previous
+                    </button>
+                @endif
+
+
+                {{-- Page numbers --}}
+                @foreach(range(1, $bets->lastPage()) as $page)
+                    @if($page === $bets->currentPage())
+                        <span class="flex h-10 min-w-10 items-center justify-center rounded-xl bg-lime-400 px-3 text-sm font-black text-[#06111f]">
+                        {{ $page }}
+                    </span>
+                    @else
+                        <button
+                            type="button"
+                            wire:click="gotoPage({{ $page }})"
+                            wire:loading.attr="disabled"
+                            class="flex h-10 min-w-10 items-center justify-center rounded-xl border border-[var(--wr-border)] px-3 text-sm font-bold text-[var(--wr-text)] transition hover:border-lime-400/40 hover:text-lime-400"
+                        >
+                            {{ $page }}
+                        </button>
+                    @endif
+                @endforeach
+
+
+                {{-- Next --}}
+                @if($bets->hasMorePages())
+                    <button
+                        type="button"
+                        wire:click="nextPage"
+                        wire:loading.attr="disabled"
+                        class="rounded-xl border border-[var(--wr-border)] px-4 py-2 text-sm font-bold text-[var(--wr-text)] transition hover:border-lime-400/40 hover:text-lime-400"
+                    >
+                        Next →
+                    </button>
+                @else
+                    <span class="cursor-not-allowed rounded-xl border border-[var(--wr-border)] px-4 py-2 text-sm font-bold opacity-40">
+                    Next →
+                </span>
+                @endif
+
+            </div>
+        </div>
+    @endif
 
 </div>
