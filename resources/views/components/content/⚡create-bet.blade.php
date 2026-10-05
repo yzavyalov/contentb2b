@@ -48,6 +48,8 @@ new class extends Component
 
     public ?int $finalAnswerId = null;
 
+    public bool $showResolutionConfirmation = false;
+
     public array $availableLanguages = [
         'en' => 'English',
         'es' => 'Spanish',
@@ -1037,6 +1039,55 @@ new class extends Component
         return redirect()->route('content.bets.index');
     }
 
+
+    public function openResolutionConfirmation(): void
+    {
+        $user = auth()->user();
+
+        abort_unless(
+            $user
+            && (
+                $user->isAdmin()
+                || $user->isContentSupervisor()
+            ),
+            403
+        );
+
+        $this->validate([
+            'finalAnswerId' => ['required', 'integer'],
+        ]);
+
+        $bet = Bet::query()
+            ->with('answers')
+            ->findOrFail($this->betId);
+
+        $status = $bet->status instanceof BetStatus
+            ? $bet->status
+            : BetStatus::tryFrom((string) $bet->status);
+
+        abort_unless(
+            $status === BetStatus::RESOLVING,
+            422,
+            'This market is not awaiting resolution.'
+        );
+
+        abort_unless(
+            $bet->answers->contains(
+                fn ($answer) => (int) $answer->id === (int) $this->finalAnswerId
+            ),
+            422,
+            'The selected answer does not belong to this market.'
+        );
+
+        $this->showResolutionConfirmation = true;
+    }
+
+    public function closeResolutionConfirmation(): void
+    {
+        $this->showResolutionConfirmation = false;
+    }
+
+
     public function confirmResolution(): void
     {
         $user = auth()->user();
@@ -1814,19 +1865,136 @@ new class extends Component
                                 </div>
                             </div>
                             <button type="button"
-                                    wire:click="confirmResolution"
-                                    wire:confirm="Resolve this market with the selected winning answer?"
+                                    wire:click="openResolutionConfirmation"
                                     wire:loading.attr="disabled"
-                                    wire:target="confirmResolution"
+                                    wire:target="openResolutionConfirmation"
+                                    @disabled(! $finalAnswerId)
                                     class="inline-flex min-w-[230px] items-center justify-center rounded-xl bg-lime-400 px-6 py-3 text-sm font-black text-[#06111f] transition hover:bg-lime-300 disabled:cursor-not-allowed disabled:opacity-50">
-                                <span wire:loading.remove wire:target="confirmResolution">✓ Confirm & Resolve Market</span>
-                                <span wire:loading wire:target="confirmResolution">Resolving...</span>
+                                <span wire:loading.remove wire:target="openResolutionConfirmation">
+                                    ✓ Confirm & Resolve Market
+                                </span>
+                                <span wire:loading wire:target="openResolutionConfirmation">
+                                    Checking...
+                                </span>
                             </button>
                         </div>
                     @endif
                 </div>
             </div>
         </section>
+
+        {{-- Final resolution safety confirmation --}}
+        @if($showResolutionConfirmation && ! $isResolved)
+            @php
+                $selectedFinalAnswer = $currentBet->answers
+                    ->firstWhere('id', (int) $finalAnswerId);
+
+                $selectedFinalAnswerTitle = $answerTitle($selectedFinalAnswer);
+            @endphp
+
+            <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="resolution-confirmation-title">
+
+                {{-- Backdrop --}}
+                <button type="button"
+                        wire:click="closeResolutionConfirmation"
+                        class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+                        aria-label="Close final resolution confirmation">
+                </button>
+
+                {{-- Modal --}}
+                <div class="relative z-10 w-full max-w-2xl overflow-hidden rounded-3xl border border-red-400/30 bg-[var(--wr-panel)] shadow-2xl">
+
+                    <div class="border-b border-red-400/20 bg-red-400/[0.07] px-6 py-5 sm:px-8">
+                        <div class="text-xs font-black uppercase tracking-[0.18em] text-red-400">
+                            Final confirmation
+                        </div>
+
+                        <h3 id="resolution-confirmation-title"
+                            class="mt-2 text-2xl font-black text-[var(--wr-text)]">
+                            Confirm the official winner
+                        </h3>
+
+                        <p class="mt-2 text-sm leading-6 text-[var(--wr-muted)]">
+                            Please verify the selected answer carefully.
+                            Resolving the market will lock the official result
+                            and queue market.resolved callbacks for merchants
+                            that received this market.
+                        </p>
+                    </div>
+
+                    <div class="space-y-5 p-6 sm:p-8">
+
+                        <div class="grid gap-3 sm:grid-cols-2">
+
+                            <div class="rounded-2xl border border-[var(--wr-border)] bg-[var(--wr-input)] p-4">
+                                <div class="text-[10px] font-black uppercase tracking-wider text-[var(--wr-muted)]">
+                                    Market
+                                </div>
+
+                                <div class="mt-2 text-lg font-black text-[var(--wr-text)]">
+                                    #{{ $currentBet->id }}
+                                </div>
+                            </div>
+
+                            <div class="rounded-2xl border border-red-400/25 bg-red-400/[0.06] p-4">
+                                <div class="text-[10px] font-black uppercase tracking-wider text-red-300">
+                                    Selected winning answer
+                                </div>
+
+                                <div class="mt-2 break-words text-xl font-black text-red-300">
+                                    {{ $selectedFinalAnswerTitle ?: 'No answer selected' }}
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] p-5">
+                            <div class="text-sm font-black text-amber-300">
+                                Are you absolutely sure this is the correct winner?
+                            </div>
+
+                            <div class="mt-2 text-sm leading-6 text-[var(--wr-text-soft)]">
+                                After final confirmation the market will become
+                                RESOLVED and the selected answer will be recorded
+                                as the official winner.
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+
+                            <button type="button"
+                                    wire:click="closeResolutionConfirmation"
+                                    wire:loading.attr="disabled"
+                                    wire:target="confirmResolution"
+                                    class="inline-flex items-center justify-center rounded-xl border border-[var(--wr-border)] px-5 py-3 text-sm font-black text-[var(--wr-text-soft)] transition hover:border-slate-400/40 hover:text-[var(--wr-text)] disabled:opacity-50">
+                                Cancel
+                            </button>
+
+                            <button type="button"
+                                    wire:click="confirmResolution"
+                                    wire:loading.attr="disabled"
+                                    wire:target="confirmResolution"
+                                    @disabled(! $selectedFinalAnswer)
+                                    class="inline-flex min-w-[250px] items-center justify-center rounded-xl bg-red-500 px-6 py-3 text-sm font-black text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50">
+
+                                <span wire:loading.remove wire:target="confirmResolution">
+                                    Yes, Resolve with “{{ $selectedFinalAnswerTitle }}”
+                                </span>
+
+                                <span wire:loading wire:target="confirmResolution">
+                                    Resolving & queuing callbacks...
+                                </span>
+                            </button>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
     @endif
 
     @if(
