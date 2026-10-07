@@ -2,6 +2,7 @@
 
 use Livewire\Component;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Services\CurrentMerchant;
 
@@ -42,18 +43,36 @@ new class extends Component
             return;
         }
 
-        $token = $this->merchant
-            ->tokens()
-            ->whereKey($tokenId)
-            ->firstOrFail();
+        DB::transaction(function () use ($tokenId) {
+            $token = $this->merchant
+                ->tokens()
+                ->whereKey($tokenId)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $token->update([
-            'is_active' => ! $token->is_active,
-        ]);
+            if ($token->is_active) {
+                $token->update([
+                    'is_active' => false,
+                ]);
 
-        if (! $token->is_active && $this->visibleTokenId === $token->id) {
-            $this->hideToken();
-        }
+                if ($this->visibleTokenId === $token->id) {
+                    $this->hideToken();
+                }
+
+                return;
+            }
+
+            $this->merchant
+                ->tokens()
+                ->where('is_active', true)
+                ->update([
+                    'is_active' => false,
+                ]);
+
+            $token->update([
+                'is_active' => true,
+            ]);
+        });
 
         $this->loadTokens();
     }
@@ -102,15 +121,24 @@ new class extends Component
 
         $plainToken = 'wr_live_' . Str::random(48);
 
-        $this->newPlainToken = $plainToken;
+        DB::transaction(function () use ($plainToken) {
+            $this->merchant
+                ->tokens()
+                ->where('is_active', true)
+                ->update([
+                    'is_active' => false,
+                ]);
 
-        $this->merchant->tokens()->create([
-            'name' => $this->tokenName,
-            'token_prefix' => substr($plainToken, 0, 15),
-            'token_hash' => hash('sha256', $plainToken),
-            'token_encrypted' => Crypt::encryptString($plainToken),
-            'is_active' => true,
-        ]);
+            $this->merchant->tokens()->create([
+                'name' => $this->tokenName,
+                'token_prefix' => substr($plainToken, 0, 15),
+                'token_hash' => hash('sha256', $plainToken),
+                'token_encrypted' => Crypt::encryptString($plainToken),
+                'is_active' => true,
+            ]);
+        });
+
+        $this->newPlainToken = $plainToken;
 
         $this->tokenName = '';
         $this->showCreateForm = false;
@@ -142,7 +170,7 @@ new class extends Component
                 </h3>
 
                 <p class="wr-muted mt-1 text-sm">
-                    Use separate tokens for production, development or staging environments.
+                    Only one API token can be active at a time. Activating or creating a new token automatically disables the previous active token.
                 </p>
             </div>
 
@@ -399,8 +427,8 @@ new class extends Component
                             type="button"
                             wire:click="toggleToken({{ $token->id }})"
                             wire:confirm="{{ $token->is_active
-        ? 'Disable this API token? Applications using it will immediately lose access.'
-        : 'Enable this API token?' }}"
+    ? 'Disable this API token? Wrangle will stop signing merchant requests until another token is activated.'
+    : 'Activate this API token? The currently active token will be disabled immediately.' }}"
                             class="
         rounded-lg border
         px-3 py-2
