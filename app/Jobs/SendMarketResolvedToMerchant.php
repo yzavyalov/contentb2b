@@ -9,7 +9,7 @@ use App\Models\MerchantBet;
 use App\Models\MerchantCallback;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Http;
+use App\Services\MerchantSignedHttpService;
 use RuntimeException;
 use Throwable;
 
@@ -25,7 +25,7 @@ class SendMarketResolvedToMerchant implements ShouldQueue
     ) {
     }
 
-    public function handle(): void
+    public function handle(MerchantSignedHttpService $signedHttp): void
     {
         $merchantBet = MerchantBet::query()
             ->with([
@@ -238,10 +238,11 @@ class SendMarketResolvedToMerchant implements ShouldQueue
         ];
 
         try {
-            $response = Http::acceptJson()
-                ->asJson()
-                ->timeout(20)
-                ->post($callbackUrl, $payload);
+            $response = $signedHttp->post(
+                $merchant,
+                $callbackUrl,
+                $payload
+            );
 
             if (! $response->successful()) {
                 $error =
