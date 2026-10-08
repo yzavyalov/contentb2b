@@ -1050,12 +1050,43 @@ new class extends Component
 
 
                 {{-- Page numbers --}}
-                @foreach(range(1, $bets->lastPage()) as $page)
-                    @if($page === $bets->currentPage())
+                @php
+                    $currentPage = $bets->currentPage();
+                    $lastPage = $bets->lastPage();
+
+                    $pages = collect([
+                        1,
+                        2,
+                        $currentPage - 1,
+                        $currentPage,
+                        $currentPage + 1,
+                        $lastPage - 1,
+                        $lastPage,
+                    ])
+                        ->filter(fn ($page) => $page >= 1 && $page <= $lastPage)
+                        ->unique()
+                        ->sort()
+                        ->values();
+                @endphp
+
+                @foreach($pages as $index => $page)
+
+                    @if($index > 0 && $page - $pages[$index - 1] > 1)
+
+                        <span class="flex h-10 min-w-6 items-center justify-center px-1 text-sm font-bold text-[var(--wr-muted)]">
+            …
+        </span>
+
+                    @endif
+
+                    @if($page === $currentPage)
+
                         <span class="flex h-10 min-w-10 items-center justify-center rounded-xl bg-lime-400 px-3 text-sm font-black text-[#06111f]">
-                            {{ $page }}
-                        </span>
+            {{ $page }}
+        </span>
+
                     @else
+
                         <button
                             type="button"
                             wire:click="gotoPage({{ $page }})"
@@ -1064,7 +1095,9 @@ new class extends Component
                         >
                             {{ $page }}
                         </button>
+
                     @endif
+
                 @endforeach
 
 
