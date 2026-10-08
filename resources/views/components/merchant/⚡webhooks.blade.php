@@ -126,13 +126,11 @@ new class extends Component
             return;
         }
 
-        $payload = $this->testMarketPayload();
-
         $this->sendTestRequest(
             $signedHttp,
             $merchant,
             $merchant->market_url,
-            $payload,
+            $this->testPayload('market.published'),
             'Test market delivered successfully.'
         );
     }
@@ -150,24 +148,11 @@ new class extends Component
             return;
         }
 
-        $payload = [
-            'event' => 'market.resolving',
-            'market' => [
-                'id' => 900000001,
-                'status' => 'resolving',
-                'source_locale' => 'en',
-                'finish_at' => '2030-01-01T12:00:00Z',
-                'published_at' => '2030-01-01T10:00:00Z',
-                'resolved_at' => null,
-                'winning_answer_id' => null,
-            ],
-        ];
-
         $this->sendTestRequest(
             $signedHttp,
             $merchant,
             $merchant->callback_url,
-            $payload,
+            $this->testPayload('market.resolving'),
             'Test resolving callback delivered successfully.'
         );
     }
@@ -185,24 +170,11 @@ new class extends Component
             return;
         }
 
-        $payload = [
-            'event' => 'market.cancelled',
-            'market' => [
-                'id' => 900000001,
-                'status' => 'cancelled',
-                'source_locale' => 'en',
-                'finish_at' => '2030-01-01T12:00:00Z',
-                'published_at' => '2030-01-01T10:00:00Z',
-                'resolved_at' => null,
-                'winning_answer_id' => null,
-            ],
-        ];
-
         $this->sendTestRequest(
             $signedHttp,
             $merchant,
             $merchant->callback_url,
-            $payload,
+            $this->testPayload('market.cancelled'),
             'Test cancelled callback delivered successfully.'
         );
     }
@@ -220,24 +192,11 @@ new class extends Component
             return;
         }
 
-        $payload = [
-            'event' => 'market.resolved',
-            'market' => [
-                'id' => 900000001,
-                'status' => 'resolved',
-                'source_locale' => 'en',
-                'finish_at' => '2030-01-01T12:00:00Z',
-                'published_at' => '2030-01-01T10:00:00Z',
-                'resolved_at' => '2030-01-01T12:05:00Z',
-                'winning_answer_id' => 900000011,
-            ],
-        ];
-
         $this->sendTestRequest(
             $signedHttp,
             $merchant,
             $merchant->callback_url,
-            $payload,
+            $this->testPayload('market.resolved'),
             'Test resolved callback delivered successfully.'
         );
     }
@@ -298,20 +257,86 @@ new class extends Component
         );
     }
 
-    private function testMarketPayload(): array
+    private function testPayload(string $event): array
     {
-        return [
-            'event' => 'market.published',
+        $resolved = $event === 'market.resolved';
 
-            'market' => [
-                'id' => 900000001,
-                'status' => 'published',
-                'source_locale' => 'en',
-                'finish_at' => '2030-01-01T12:00:00Z',
-                'published_at' => '2030-01-01T10:00:00Z',
-                'resolved_at' => null,
-                'winning_answer_id' => null,
+        $status = match ($event) {
+            'market.published' => 'published',
+            'market.resolving' => 'resolving',
+            'market.cancelled' => 'cancelled',
+            'market.resolved' => 'resolved',
+            default => throw new \InvalidArgumentException(
+                "Unsupported test event: {$event}"
+            ),
+        };
+
+        $answers = [
+            [
+                'id' => 900000011,
+                'sort_order' => 0,
+                'translations' => [
+                    [
+                        'locale' => 'en',
+                        'title' => 'Team Alpha will win',
+                    ],
+                    [
+                        'locale' => 'es',
+                        'title' => 'GanarГЎ Team Alpha',
+                    ],
+                ],
             ],
+            [
+                'id' => 900000012,
+                'sort_order' => 1,
+                'translations' => [
+                    [
+                        'locale' => 'en',
+                        'title' => 'Team Beta will win',
+                    ],
+                    [
+                        'locale' => 'es',
+                        'title' => 'GanarГЎ Team Beta',
+                    ],
+                ],
+            ],
+            [
+                'id' => 900000013,
+                'sort_order' => 2,
+                'translations' => [
+                    [
+                        'locale' => 'en',
+                        'title' => 'The match will end in a draw',
+                    ],
+                    [
+                        'locale' => 'es',
+                        'title' => 'El partido terminarГЎ en empate',
+                    ],
+                ],
+            ],
+        ];
+
+        if ($event !== 'market.published') {
+            foreach ($answers as &$answer) {
+                $answer['is_winner'] = $resolved
+                    && $answer['id'] === 900000011;
+            }
+
+            unset($answer);
+        }
+
+        $market = [
+            'id' => 900000001,
+            'status' => $status,
+            'source_locale' => 'en',
+            'finish_at' => '2030-01-01T12:00:00Z',
+            'published_at' => '2030-01-01T10:00:00Z',
+            'resolved_at' => $resolved
+                ? '2030-01-01T12:05:00Z'
+                : null,
+            'winning_answer_id' => $resolved
+                ? 900000011
+                : null,
 
             'translations' => [
                 [
@@ -321,15 +346,49 @@ new class extends Component
                 ],
                 [
                     'locale' => 'es',
-                    'title' => '¿Ganará Team Alpha el partido de prueba?',
-                    'description' => 'Mercado sintético generado por el probador de webhooks de wrangle.win.',
+                    'title' => 'ВїGanarГЎ Team Alpha el partido de prueba?',
+                    'description' => 'Mercado sintГ©tico generado por el probador de webhooks de wrangle.win.',
                 ],
             ],
 
-            'answers' => [
+            'answers' => $answers,
+
+            'sources' => [
                 [
-                    'id' => 900000011,
+                    'url' => 'https://example.com/test-source',
                     'sort_order' => 0,
+                ],
+            ],
+
+            'categories' => [
+                [
+                    'id' => 900000021,
+                    'name' => 'Test Sports',
+                    'slug' => 'test-sports',
+                ],
+            ],
+
+            'countries' => [
+                [
+                    'id' => 900000031,
+                    'code' => 'RO',
+                    'name' => 'Romania',
+                ],
+            ],
+
+            'country_groups' => [
+                [
+                    'id' => 900000041,
+                    'name' => 'Test Europe',
+                    'slug' => 'test-europe',
+                ],
+            ],
+        ];
+
+        if ($event !== 'market.published') {
+            $market['winning_answer'] = $resolved
+                ? [
+                    'id' => 900000011,
                     'translations' => [
                         [
                             'locale' => 'en',
@@ -337,39 +396,16 @@ new class extends Component
                         ],
                         [
                             'locale' => 'es',
-                            'title' => 'Ganará Team Alpha',
+                            'title' => 'GanarГЎ Team Alpha',
                         ],
                     ],
-                ],
-                [
-                    'id' => 900000012,
-                    'sort_order' => 1,
-                    'translations' => [
-                        [
-                            'locale' => 'en',
-                            'title' => 'Team Beta will win',
-                        ],
-                        [
-                            'locale' => 'es',
-                            'title' => 'Ganará Team Beta',
-                        ],
-                    ],
-                ],
-                [
-                    'id' => 900000013,
-                    'sort_order' => 2,
-                    'translations' => [
-                        [
-                            'locale' => 'en',
-                            'title' => 'The match will end in a draw',
-                        ],
-                        [
-                            'locale' => 'es',
-                            'title' => 'El partido terminará en empate',
-                        ],
-                    ],
-                ],
-            ],
+                ]
+                : null;
+        }
+
+        return [
+            'event' => $event,
+            'market' => $market,
         ];
     }
 
@@ -1101,7 +1137,7 @@ new class extends Component
 
 
                 <div class="hidden text-center text-xl font-black text-lime-500 lg:block">
-                    →
+                    в†’
                 </div>
 
 
@@ -1127,7 +1163,7 @@ new class extends Component
 
 
                 <div class="hidden text-center text-xl font-black text-lime-500 lg:block">
-                    →
+                    в†’
                 </div>
 
 
