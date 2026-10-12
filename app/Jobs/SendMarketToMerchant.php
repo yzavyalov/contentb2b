@@ -11,8 +11,10 @@ use App\Services\MerchantBillingService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use App\Services\MerchantSignedHttpService;
+use App\Services\MarketCountryPayloadService;
 use RuntimeException;
 use Throwable;
+
 
 class SendMarketToMerchant implements ShouldQueue
 {
@@ -28,7 +30,8 @@ class SendMarketToMerchant implements ShouldQueue
 
     public function handle(
         MerchantBillingService $billingService,
-        MerchantSignedHttpService $signedHttp
+        MerchantSignedHttpService $signedHttp,
+        MarketCountryPayloadService $countryPayloadService
     ): void
     {
         $merchantBet = MerchantBet::query()
@@ -39,7 +42,7 @@ class SendMarketToMerchant implements ShouldQueue
                 'bet.sources',
                 'bet.categories',
                 'bet.countries',
-                'bet.countryGroups',
+                'bet.countryGroups.countries',
                 'bet.winningAnswer.translations',
             ])
             ->findOrFail($this->merchantBetId);
@@ -229,23 +232,7 @@ class SendMarketToMerchant implements ShouldQueue
                     ->values()
                     ->all(),
 
-                'countries' => $bet->countries
-                    ->map(fn ($country) => [
-                        'id' => $country->id,
-                        'code' => $country->code,
-                        'name' => $country->name,
-                    ])
-                    ->values()
-                    ->all(),
-
-                'country_groups' => $bet->countryGroups
-                    ->map(fn ($group) => [
-                        'id' => $group->id,
-                        'name' => $group->name,
-                        'slug' => $group->slug,
-                    ])
-                    ->values()
-                    ->all(),
+                'countries' => $countryPayloadService->forBet($bet),
             ],
         ];
 

@@ -370,17 +370,16 @@ new class extends Component
 
             'countries' => [
                 [
-                    'id' => 900000031,
+                    'code' => 'DE',
+                    'name' => 'Germany',
+                ],
+                [
+                    'code' => 'FR',
+                    'name' => 'France',
+                ],
+                [
                     'code' => 'RO',
                     'name' => 'Romania',
-                ],
-            ],
-
-            'country_groups' => [
-                [
-                    'id' => 900000041,
-                    'name' => 'Test Europe',
-                    'slug' => 'test-europe',
                 ],
             ],
         ];
