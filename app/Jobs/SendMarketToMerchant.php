@@ -7,14 +7,13 @@ use App\Enums\MerchantCallbackEvent;
 use App\Enums\MerchantCallbackStatus;
 use App\Models\MerchantBet;
 use App\Models\MerchantCallback;
+use App\Services\MarketCountryPayloadService;
 use App\Services\MerchantBillingService;
+use App\Services\MerchantSignedHttpService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use App\Services\MerchantSignedHttpService;
-use App\Services\MarketCountryPayloadService;
 use RuntimeException;
 use Throwable;
-
 
 class SendMarketToMerchant implements ShouldQueue
 {
@@ -32,8 +31,7 @@ class SendMarketToMerchant implements ShouldQueue
         MerchantBillingService $billingService,
         MerchantSignedHttpService $signedHttp,
         MarketCountryPayloadService $countryPayloadService
-    ): void
-    {
+    ): void {
         $merchantBet = MerchantBet::query()
             ->with([
                 'merchant',
@@ -176,6 +174,16 @@ class SendMarketToMerchant implements ShouldQueue
             ? $bet->status->value
             : $bet->status;
 
+        /*
+         * Image is sent only during the initial market delivery.
+         *
+         * The merchant stores this URL locally. Lifecycle callbacks
+         * do not need to send the image again.
+         */
+        $imageUrl = filled($bet->image_path)
+            ? asset('storage/'.$bet->image_path)
+            : null;
+
         $payload = [
             'event' => MerchantCallbackEvent::MARKET_PUBLISHED->value,
 
@@ -183,6 +191,7 @@ class SendMarketToMerchant implements ShouldQueue
                 'id' => $bet->id,
                 'status' => $status,
                 'source_locale' => $bet->source_locale,
+                'image_url' => $imageUrl,
                 'finish_at' => $bet->finish_at?->toIso8601String(),
                 'published_at' => $bet->published_at?->toIso8601String(),
                 'resolved_at' => $bet->resolved_at?->toIso8601String(),
