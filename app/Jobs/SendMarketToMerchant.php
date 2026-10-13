@@ -7,7 +7,7 @@ use App\Enums\MerchantCallbackEvent;
 use App\Enums\MerchantCallbackStatus;
 use App\Models\MerchantBet;
 use App\Models\MerchantCallback;
-use App\Services\MarketCountryPayloadService;
+use App\Services\MarketPayloadService;
 use App\Services\MerchantBillingService;
 use App\Services\MerchantSignedHttpService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,18 +30,12 @@ class SendMarketToMerchant implements ShouldQueue
     public function handle(
         MerchantBillingService $billingService,
         MerchantSignedHttpService $signedHttp,
-        MarketCountryPayloadService $countryPayloadService
+        MarketPayloadService $marketPayloadService
     ): void {
         $merchantBet = MerchantBet::query()
             ->with([
                 'merchant',
-                'bet.translations',
-                'bet.answers.translations',
-                'bet.sources',
-                'bet.categories',
-                'bet.countries',
-                'bet.countryGroups.countries',
-                'bet.winningAnswer.translations',
+                'bet',
             ])
             ->findOrFail($this->merchantBetId);
 
@@ -68,10 +62,12 @@ class SendMarketToMerchant implements ShouldQueue
         }
 
         /*
-         * market_url is used ONLY for initial market delivery.
+         * market_url is used for full market snapshots:
          *
-         * Resolution/status callbacks will use callback_url
-         * in a separate callback job/service.
+         * market.published
+         * market.updated
+         *
+         * Lifecycle callbacks use callback_url.
          */
         $marketUrl = $merchant->market_url
             ? trim($merchant->market_url)
@@ -80,13 +76,15 @@ class SendMarketToMerchant implements ShouldQueue
         if (! $marketUrl) {
             $merchantBet->update([
                 'status' => MerchantBetStatus::CALLBACK_FAILED,
-                'callback_status' => MerchantCallbackStatus::FAILED->value,
+                'callback_status' =>
+                    MerchantCallbackStatus::FAILED->value,
             ]);
 
             MerchantCallback::query()->updateOrCreate(
                 [
                     'merchant_bet_id' => $merchantBet->id,
-                    'event' => MerchantCallbackEvent::MARKET_PUBLISHED,
+                    'event' =>
+                        MerchantCallbackEvent::MARKET_PUBLISHED,
                 ],
                 [
                     'merchant_id' => $merchant->id,
@@ -104,15 +102,12 @@ class SendMarketToMerchant implements ShouldQueue
 
         /*
          * Store the actual endpoint used for this delivery.
-         *
-         * This is important because the merchant may change
-         * market_url later, while the callback record should
-         * preserve where this specific delivery was sent.
          */
         $callback = MerchantCallback::query()->firstOrCreate(
             [
                 'merchant_bet_id' => $merchantBet->id,
-                'event' => MerchantCallbackEvent::MARKET_PUBLISHED,
+                'event' =>
+                    MerchantCallbackEvent::MARKET_PUBLISHED,
             ],
             [
                 'merchant_id' => $merchant->id,
@@ -159,9 +154,6 @@ class SendMarketToMerchant implements ShouldQueue
         /*
          * For a pending/failed delivery retry, use the merchant's
          * CURRENT market_url.
-         *
-         * This allows a financial/admin user to correct the URL
-         * and retry the failed delivery.
          */
         $callback->update([
             'status' => MerchantCallbackStatus::PROCESSING,
@@ -170,79 +162,19 @@ class SendMarketToMerchant implements ShouldQueue
             'last_error' => null,
         ]);
 
-        $status = $bet->status instanceof \BackedEnum
-            ? $bet->status->value
-            : $bet->status;
-
         /*
-         * Image is sent only during the initial market delivery.
+         * market.published carries the complete authoritative
+         * market snapshot.
          *
-         * The merchant stores this URL locally. Lifecycle callbacks
-         * do not need to send the image again.
+         * The same snapshot builder will later be reused by
+         * market.updated.
          */
-        $imageUrl = filled($bet->image_path)
-            ? asset('storage/'.$bet->image_path)
-            : null;
-
         $payload = [
-            'event' => MerchantCallbackEvent::MARKET_PUBLISHED->value,
+            'event' =>
+                MerchantCallbackEvent::MARKET_PUBLISHED->value,
 
-            'market' => [
-                'id' => $bet->id,
-                'status' => $status,
-                'source_locale' => $bet->source_locale,
-                'image_url' => $imageUrl,
-                'finish_at' => $bet->finish_at?->toIso8601String(),
-                'published_at' => $bet->published_at?->toIso8601String(),
-                'resolved_at' => $bet->resolved_at?->toIso8601String(),
-                'winning_answer_id' => $bet->winning_answer_id,
-
-                'translations' => $bet->translations
-                    ->map(fn ($translation) => [
-                        'locale' => $translation->locale,
-                        'title' => $translation->title,
-                        'description' => $translation->description,
-                    ])
-                    ->values()
-                    ->all(),
-
-                'answers' => $bet->answers
-                    ->sortBy('sort_order')
-                    ->map(fn ($answer) => [
-                        'id' => $answer->id,
-                        'sort_order' => $answer->sort_order,
-
-                        'translations' => $answer->translations
-                            ->map(fn ($translation) => [
-                                'locale' => $translation->locale,
-                                'title' => $translation->title,
-                            ])
-                            ->values()
-                            ->all(),
-                    ])
-                    ->values()
-                    ->all(),
-
-                'sources' => $bet->sources
-                    ->sortBy('sort_order')
-                    ->map(fn ($source) => [
-                        'url' => $source->url,
-                        'sort_order' => $source->sort_order,
-                    ])
-                    ->values()
-                    ->all(),
-
-                'categories' => $bet->categories
-                    ->map(fn ($category) => [
-                        'id' => $category->id,
-                        'name' => $category->name,
-                        'slug' => $category->slug,
-                    ])
-                    ->values()
-                    ->all(),
-
-                'countries' => $countryPayloadService->forBet($bet),
-            ],
+            'market' =>
+                $marketPayloadService->full($bet),
         ];
 
         try {
@@ -274,9 +206,8 @@ class SendMarketToMerchant implements ShouldQueue
             }
 
             /*
-             * The merchant has accepted the market.
-             *
              * Persist successful delivery BEFORE billing.
+             *
              * A billing error must never cause the external
              * market endpoint to receive this market twice.
              */
@@ -329,7 +260,8 @@ class SendMarketToMerchant implements ShouldQueue
         }
 
         /*
-         * Billing is performed only after successful delivery.
+         * Billing is performed only after successful
+         * initial delivery.
          */
         $billingService->chargeForMarket(
             $merchant,

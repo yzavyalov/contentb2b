@@ -7,10 +7,9 @@ use App\Enums\MerchantCallbackEvent;
 use App\Enums\MerchantCallbackStatus;
 use App\Models\MerchantBet;
 use App\Models\MerchantCallback;
+use App\Services\MerchantSignedHttpService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use App\Services\MerchantSignedHttpService;
-use App\Services\MarketCountryPayloadService;
 use RuntimeException;
 use Throwable;
 
@@ -27,20 +26,12 @@ class SendMarketResolvedToMerchant implements ShouldQueue
     }
 
     public function handle(
-        MerchantSignedHttpService $signedHttp,
-        MarketCountryPayloadService $countryPayloadService
-    ): void
-    {
+        MerchantSignedHttpService $signedHttp
+    ): void {
         $merchantBet = MerchantBet::query()
             ->with([
                 'merchant',
-                'bet.translations',
-                'bet.answers.translations',
-                'bet.sources',
-                'bet.categories',
-                'bet.countries',
-                'bet.countryGroups.countries',
-                'bet.winningAnswer.translations',
+                'bet',
             ])
             ->findOrFail($this->merchantBetId);
 
@@ -61,15 +52,17 @@ class SendMarketResolvedToMerchant implements ShouldQueue
         /*
          * The market must actually be resolved.
          */
-        if ($bet->resolved_at === null || $bet->winning_answer_id === null) {
+        if (
+            $bet->resolved_at === null
+            || $bet->winning_answer_id === null
+        ) {
             throw new RuntimeException(
                 "Bet #{$bet->id} is not resolved yet."
             );
         }
 
         /*
-         * callback_url is used ONLY for subsequent market events:
-         * resolution, cancellation, updates, etc.
+         * Lifecycle callbacks use callback_url.
          */
         $callbackUrl = $merchant->callback_url
             ? trim($merchant->callback_url)
@@ -79,7 +72,8 @@ class SendMarketResolvedToMerchant implements ShouldQueue
             MerchantCallback::query()->updateOrCreate(
                 [
                     'merchant_bet_id' => $merchantBet->id,
-                    'event' => MerchantCallbackEvent::MARKET_RESOLVED,
+                    'event' =>
+                        MerchantCallbackEvent::MARKET_RESOLVED,
                 ],
                 [
                     'merchant_id' => $merchant->id,
@@ -101,7 +95,8 @@ class SendMarketResolvedToMerchant implements ShouldQueue
         $callback = MerchantCallback::query()->firstOrCreate(
             [
                 'merchant_bet_id' => $merchantBet->id,
-                'event' => MerchantCallbackEvent::MARKET_RESOLVED,
+                'event' =>
+                    MerchantCallbackEvent::MARKET_RESOLVED,
             ],
             [
                 'merchant_id' => $merchant->id,
@@ -114,10 +109,8 @@ class SendMarketResolvedToMerchant implements ShouldQueue
         );
 
         /*
-         * Idempotency:
-         *
-         * If this resolution was already successfully delivered,
-         * never send it again.
+         * Successfully delivered resolution callback
+         * is never sent twice.
          */
         if ($callback->delivered_at !== null) {
             if ($merchantBet->resolved_at === null) {
@@ -130,10 +123,7 @@ class SendMarketResolvedToMerchant implements ShouldQueue
         }
 
         /*
-         * For a retry use the merchant's CURRENT callback_url.
-         *
-         * This means Finance/Admin can correct a broken URL
-         * and retry the callback.
+         * Retry uses the merchant's CURRENT callback_url.
          */
         $callback->update([
             'status' => MerchantCallbackStatus::PROCESSING,
@@ -146,82 +136,23 @@ class SendMarketResolvedToMerchant implements ShouldQueue
             ? $bet->status->value
             : $bet->status;
 
+        /*
+         * market.resolved contains only lifecycle/result data.
+         *
+         * winning_answer_id is the single source of truth
+         * for the winning outcome.
+         */
         $payload = [
-            'event' => MerchantCallbackEvent::MARKET_RESOLVED->value,
+            'event' =>
+                MerchantCallbackEvent::MARKET_RESOLVED->value,
 
             'market' => [
                 'id' => $bet->id,
                 'status' => $status,
-                'source_locale' => $bet->source_locale,
-                'finish_at' => $bet->finish_at?->toIso8601String(),
-                'published_at' => $bet->published_at?->toIso8601String(),
-                'resolved_at' => $bet->resolved_at?->toIso8601String(),
-
-                'winning_answer_id' => $bet->winning_answer_id,
-
-                'translations' => $bet->translations
-                    ->map(fn ($translation) => [
-                        'locale' => $translation->locale,
-                        'title' => $translation->title,
-                        'description' => $translation->description,
-                    ])
-                    ->values()
-                    ->all(),
-
-                'answers' => $bet->answers
-                    ->sortBy('sort_order')
-                    ->map(fn ($answer) => [
-                        'id' => $answer->id,
-                        'sort_order' => $answer->sort_order,
-                        'is_winner' =>
-                            (int) $answer->id
-                            === (int) $bet->winning_answer_id,
-
-                        'translations' => $answer->translations
-                            ->map(fn ($translation) => [
-                                'locale' => $translation->locale,
-                                'title' => $translation->title,
-                            ])
-                            ->values()
-                            ->all(),
-                    ])
-                    ->values()
-                    ->all(),
-
-                'winning_answer' => $bet->winningAnswer
-                    ? [
-                        'id' => $bet->winningAnswer->id,
-
-                        'translations' =>
-                            $bet->winningAnswer->translations
-                                ->map(fn ($translation) => [
-                                    'locale' => $translation->locale,
-                                    'title' => $translation->title,
-                                ])
-                                ->values()
-                                ->all(),
-                    ]
-                    : null,
-
-                'sources' => $bet->sources
-                    ->sortBy('sort_order')
-                    ->map(fn ($source) => [
-                        'url' => $source->url,
-                        'sort_order' => $source->sort_order,
-                    ])
-                    ->values()
-                    ->all(),
-
-                'categories' => $bet->categories
-                    ->map(fn ($category) => [
-                        'id' => $category->id,
-                        'name' => $category->name,
-                        'slug' => $category->slug,
-                    ])
-                    ->values()
-                    ->all(),
-
-                'countries' => $countryPayloadService->forBet($bet),
+                'winning_answer_id' =>
+                    $bet->winning_answer_id,
+                'resolved_at' =>
+                    $bet->resolved_at->toIso8601String(),
             ],
         ];
 
@@ -251,9 +182,6 @@ class SendMarketResolvedToMerchant implements ShouldQueue
 
             /*
              * Resolution callback is NOT separately billable.
-             *
-             * The merchant already paid for the market according
-             * to the applicable billing plan.
              */
             $callback->update([
                 'status' => MerchantCallbackStatus::DELIVERED,
@@ -264,7 +192,7 @@ class SendMarketResolvedToMerchant implements ShouldQueue
             ]);
 
             /*
-             * MerchantBet.resolved_at means that the resolution
+             * MerchantBet.resolved_at means that resolution
              * was successfully delivered to THIS merchant.
              */
             $merchantBet->update([

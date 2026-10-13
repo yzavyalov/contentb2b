@@ -3,7 +3,11 @@
 use App\Enums\BetStatus;
 use App\Jobs\SendMarketCancelledToMerchant;
 use App\Jobs\SendMarketResolvedToMerchant;
+use App\Jobs\SendMarketUpdatedToMerchant;
 use App\Models\Bet;
+use App\Enums\MerchantCallbackEvent;
+use App\Enums\MerchantCallbackStatus;
+use App\Models\MerchantCallback;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\CountryGroup;
@@ -49,6 +53,7 @@ new class extends Component
     public ?int $finalAnswerId = null;
 
     public bool $showResolutionConfirmation = false;
+    public bool $showPublishedUpdateConfirmation = false;
 
     public array $availableLanguages = [
         'en' => 'English',
@@ -166,7 +171,10 @@ new class extends Component
                 $titles[$locale] ??= '';
             }
 
-            $this->answers[] = ['titles' => $titles];
+            $this->answers[] = [
+                'id' => (int) $answer->id,
+                'titles' => $titles,
+            ];
         }
 
         while (count($this->answers) < 2) {
@@ -176,7 +184,10 @@ new class extends Component
                 $titles[$locale] = '';
             }
 
-            $this->answers[] = ['titles' => $titles];
+            $this->answers[] = [
+                'id' => null,
+                'titles' => $titles,
+            ];
         }
 
         $this->sources = $bet->sources
@@ -233,7 +244,7 @@ new class extends Component
         | ADMIN / SUPERVISOR
         |--------------------------------------------------------------------------
         |
-        | Могут редактировать любой Bet.
+        | РњРѕРіСѓС‚ СЂРµРґР°РєС‚РёСЂРѕРІР°С‚СЊ Р»СЋР±РѕР№ Bet.
         |
         */
 
@@ -523,7 +534,10 @@ new class extends Component
             $titles[$locale] = '';
         }
 
-        $this->answers[] = ['titles' => $titles];
+        $this->answers[] = [
+            'id' => null,
+            'titles' => $titles,
+        ];
     }
 
     public function removeAnswer(int $index): void
@@ -623,13 +637,13 @@ new class extends Component
     public function saveDraft()
     {
         /*
-         * Save Draft разрешён:
+         * Save Draft СЂР°Р·СЂРµС€С‘РЅ:
          *
-         * - при создании нового market;
-         * - при редактировании market со статусом DRAFT;
-         * - при редактировании REJECTED market.
+         * - РїСЂРё СЃРѕР·РґР°РЅРёРё РЅРѕРІРѕРіРѕ market;
+         * - РїСЂРё СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРё market СЃРѕ СЃС‚Р°С‚СѓСЃРѕРј DRAFT;
+         * - РїСЂРё СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРё REJECTED market.
          *
-         * Нельзя через обычную форму откатывать:
+         * РќРµР»СЊР·СЏ С‡РµСЂРµР· РѕР±С‹С‡РЅСѓСЋ С„РѕСЂРјСѓ РѕС‚РєР°С‚С‹РІР°С‚СЊ:
          *
          * PENDING_REVIEW
          * APPROVED
@@ -667,13 +681,13 @@ new class extends Component
     public function submitForReview()
     {
         /*
-         * Submit for Review разрешён:
+         * Submit for Review СЂР°Р·СЂРµС€С‘РЅ:
          *
-         * - для нового market;
+         * - РґР»СЏ РЅРѕРІРѕРіРѕ market;
          * - DRAFT;
-         * - REJECTED после исправлений.
+         * - REJECTED РїРѕСЃР»Рµ РёСЃРїСЂР°РІР»РµРЅРёР№.
          *
-         * Нельзя таким способом откатывать
+         * РќРµР»СЊР·СЏ С‚Р°РєРёРј СЃРїРѕСЃРѕР±РѕРј РѕС‚РєР°С‚С‹РІР°С‚СЊ
          * APPROVED / PUBLISHED / RESOLVED.
          */
 
@@ -710,7 +724,16 @@ new class extends Component
             abort(404);
         }
 
-        $bet = Bet::query()->findOrFail($this->betId);
+        $bet = Bet::query()
+            ->with([
+                'translations',
+                'answers.translations',
+                'sources',
+                'categories',
+                'countries',
+                'countryGroups',
+            ])
+            ->findOrFail($this->betId);
 
         $this->authorizeEditableBet($bet);
 
@@ -719,8 +742,8 @@ new class extends Component
             : BetStatus::tryFrom((string) $bet->status);
 
         /*
-         * Обычное редактирование без изменения workflow
-         * разрешаем только для APPROVED и PUBLISHED.
+         * РћР±С‹С‡РЅРѕРµ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ Р±РµР· РёР·РјРµРЅРµРЅРёСЏ workflow
+         * СЂР°Р·СЂРµС€Р°РµРј С‚РѕР»СЊРєРѕ РґР»СЏ APPROVED Рё PUBLISHED.
          */
         abort_unless(
             in_array(
@@ -735,10 +758,289 @@ new class extends Component
             'This market cannot be edited in its current status.'
         );
 
-        return $this->saveBet(
-            $status,
-            preserveWorkflow: true
+        /*
+         * Validate before showing the PUBLISHED warning.
+         * We do not want the user to confirm an invalid form.
+         */
+        $this->validate($this->submitRules());
+
+        if (
+            ! $this->isGlobal
+            && empty($this->countryIds)
+            && empty($this->countryGroupIds)
+        ) {
+            $this->addError(
+                'geography',
+                'Select at least one country or country group.'
+            );
+
+            return null;
+        }
+
+        /*
+         * APPROVED markets are not yet distributed to merchants,
+         * therefore they can be saved normally.
+         */
+        if ($status === BetStatus::APPROVED) {
+            return $this->saveBet(
+                $status,
+                preserveWorkflow: true
+            );
+        }
+
+        /*
+         * For PUBLISHED markets we only ask for confirmation when
+         * the submitted form actually differs from the stored market.
+         */
+        if (! $this->hasMarketFormChanges($bet)) {
+            session()->flash(
+                'status',
+                'No market changes were detected.'
+            );
+
+            return redirect()->route('content.bets.index');
+        }
+
+        $this->showPublishedUpdateConfirmation = true;
+
+        return null;
+    }
+
+    public function closePublishedUpdateConfirmation(): void
+    {
+        /*
+         * Nothing is written to the database.
+         * The edited values remain in the form so the user can
+         * continue reviewing them or press Save Changes again.
+         */
+        $this->showPublishedUpdateConfirmation = false;
+    }
+
+    public function confirmPublishedUpdate()
+    {
+        if (! $this->betId) {
+            abort(404);
+        }
+
+        $bet = Bet::query()
+            ->with([
+                'translations',
+                'answers.translations',
+                'sources',
+                'categories',
+                'countries',
+                'countryGroups',
+            ])
+            ->findOrFail($this->betId);
+
+        $this->authorizeEditableBet($bet);
+
+        $status = $bet->status instanceof BetStatus
+            ? $bet->status
+            : BetStatus::tryFrom((string) $bet->status);
+
+        abort_unless(
+            $status === BetStatus::PUBLISHED,
+            422,
+            'This market is no longer published.'
         );
+
+        $this->validate($this->submitRules());
+
+        if (
+            ! $this->isGlobal
+            && empty($this->countryIds)
+            && empty($this->countryGroupIds)
+        ) {
+            $this->showPublishedUpdateConfirmation = false;
+
+            $this->addError(
+                'geography',
+                'Select at least one country or country group.'
+            );
+
+            return null;
+        }
+
+        /*
+         * Re-check immediately before saving. This protects against
+         * a stale confirmation modal or another concurrent edit.
+         */
+        if (! $this->hasMarketFormChanges($bet)) {
+            $this->showPublishedUpdateConfirmation = false;
+
+            session()->flash(
+                'status',
+                'No market changes were detected.'
+            );
+
+            return redirect()->route('content.bets.index');
+        }
+
+        $this->showPublishedUpdateConfirmation = false;
+
+        return $this->saveBet(
+            BetStatus::PUBLISHED,
+            preserveWorkflow: true,
+            queueMarketUpdate: true
+        );
+    }
+
+    protected function hasMarketFormChanges(Bet $bet): bool
+    {
+        if ($this->image !== null) {
+            return true;
+        }
+
+        if ((string) $bet->source_locale !== (string) $this->sourceLocale) {
+            return true;
+        }
+
+        $storedFinishAt = $bet->finish_at?->format('Y-m-d\\TH:i') ?? '';
+        $formFinishAt = trim((string) $this->finishAt);
+
+        if ($storedFinishAt !== $formFinishAt) {
+            return true;
+        }
+
+        $storedTranslations = $bet->translations
+            ->mapWithKeys(fn ($translation) => [
+                $translation->locale => [
+                    'title' => trim((string) ($translation->title ?? '')),
+                    'description' => trim((string) ($translation->description ?? '')),
+                ],
+            ])
+            ->sortKeys()
+            ->all();
+
+        $formTranslations = collect($this->translations)
+            ->map(fn ($translation) => [
+                'title' => trim((string) ($translation['title'] ?? '')),
+                'description' => trim((string) ($translation['description'] ?? '')),
+            ])
+            ->filter(
+                fn ($translation) =>
+                    $translation['title'] !== ''
+                    || $translation['description'] !== ''
+            )
+            ->sortKeys()
+            ->all();
+
+        if ($storedTranslations !== $formTranslations) {
+            return true;
+        }
+
+        $storedAnswers = $bet->answers
+            ->sortBy('sort_order')
+            ->map(function ($answer) {
+                return [
+                    'id' => (int) $answer->id,
+                    'titles' => $answer->translations
+                        ->mapWithKeys(fn ($translation) => [
+                            $translation->locale =>
+                                trim((string) ($translation->title ?? '')),
+                        ])
+                        ->sortKeys()
+                        ->all(),
+                ];
+            })
+            ->values()
+            ->all();
+
+        $formAnswers = collect($this->answers)
+            ->map(function ($answer) {
+                $titles = collect($answer['titles'] ?? [])
+                    ->map(fn ($title) => trim((string) $title))
+                    ->filter(fn ($title) => $title !== '')
+                    ->sortKeys()
+                    ->all();
+
+                return [
+                    'id' => isset($answer['id']) && $answer['id'] !== null
+                        ? (int) $answer['id']
+                        : null,
+                    'titles' => $titles,
+                ];
+            })
+            ->filter(fn ($answer) => $answer['titles'] !== [])
+            ->values()
+            ->all();
+
+        if ($storedAnswers !== $formAnswers) {
+            return true;
+        }
+
+        $storedSources = $bet->sources
+            ->sortBy('sort_order')
+            ->pluck('url')
+            ->map(fn ($url) => trim((string) $url))
+            ->filter(fn ($url) => $url !== '')
+            ->values()
+            ->all();
+
+        $formSources = collect($this->sources)
+            ->map(fn ($url) => trim((string) $url))
+            ->filter(fn ($url) => $url !== '')
+            ->values()
+            ->all();
+
+        if ($storedSources !== $formSources) {
+            return true;
+        }
+
+        $storedCategoryIds = $bet->categories
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->sort()
+            ->values()
+            ->all();
+
+        $formCategoryIds = collect($this->categoryIds)
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        if ($storedCategoryIds !== $formCategoryIds) {
+            return true;
+        }
+
+        $storedCountryIds = $bet->countries
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->sort()
+            ->values()
+            ->all();
+
+        $storedCountryGroupIds = $bet->countryGroups
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->sort()
+            ->values()
+            ->all();
+
+        $formCountryIds = $this->isGlobal
+            ? []
+            : collect($this->countryIds)
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+        $formCountryGroupIds = $this->isGlobal
+            ? []
+            : collect($this->countryGroupIds)
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+        return
+            $storedCountryIds !== $formCountryIds
+            || $storedCountryGroupIds !== $formCountryGroupIds;
     }
 
     protected function draftRules(): array
@@ -817,7 +1119,8 @@ new class extends Component
 
     protected function saveBet(
         BetStatus $status,
-        bool $preserveWorkflow = false
+        bool $preserveWorkflow = false,
+        bool $queueMarketUpdate = false
     )
     {
         $isDraft = $status === BetStatus::DRAFT;
@@ -868,11 +1171,11 @@ new class extends Component
                     : null;
 
                 /*
-                 * winning_answer_id очищаем только в обычном
+                 * winning_answer_id РѕС‡РёС‰Р°РµРј С‚РѕР»СЊРєРѕ РІ РѕР±С‹С‡РЅРѕРј
                  * draft/review workflow.
                  *
-                 * Save Changes не должен вмешиваться
-                 * в settlement state.
+                 * Save Changes РЅРµ РґРѕР»Р¶РµРЅ РІРјРµС€РёРІР°С‚СЊСЃСЏ
+                 * РІ settlement state.
                  */
                 if (! $preserveWorkflow) {
                     $bet->winning_answer_id = null;
@@ -900,8 +1203,8 @@ new class extends Component
                     $bet->rejected_at = null;
 
                     /*
-                     * Manager отправляет Bet на review.
-                     * Supervisor ещё не назначен.
+                     * Manager РѕС‚РїСЂР°РІР»СЏРµС‚ Bet РЅР° review.
+                     * Supervisor РµС‰С‘ РЅРµ РЅР°Р·РЅР°С‡РµРЅ.
                      */
                     if ($user->isContentManager()) {
                         $bet->supervisor_user_id = null;
@@ -924,7 +1227,6 @@ new class extends Component
                 $bet->save();
 
                 $bet->translations()->delete();
-                $bet->answers()->delete();
                 $bet->sources()->delete();
 
                 foreach ($this->translations as $locale => $translation) {
@@ -942,7 +1244,15 @@ new class extends Component
                     ]);
                 }
 
+                /*
+                 * Preserve existing answer IDs.
+                 *
+                 * Merchant sites use these IDs as wrangle_answer_id.
+                 * Recreating every answer during a PUBLISHED edit would make
+                 * existing merchant bets point at obsolete outcomes.
+                 */
                 $answerSortOrder = 0;
+                $keptAnswerIds = [];
 
                 foreach ($this->answers as $answerData) {
                     $titles = $answerData['titles'] ?? [];
@@ -954,9 +1264,30 @@ new class extends Component
                         continue;
                     }
 
-                    $answer = $bet->answers()->create([
-                        'sort_order' => $answerSortOrder,
-                    ]);
+                    $answerId = isset($answerData['id'])
+                    && $answerData['id'] !== null
+                        ? (int) $answerData['id']
+                        : null;
+
+                    $answer = null;
+
+                    if ($answerId) {
+                        $answer = $bet->answers()
+                            ->whereKey($answerId)
+                            ->first();
+                    }
+
+                    if ($answer) {
+                        $answer->update([
+                            'sort_order' => $answerSortOrder,
+                        ]);
+
+                        $answer->translations()->delete();
+                    } else {
+                        $answer = $bet->answers()->create([
+                            'sort_order' => $answerSortOrder,
+                        ]);
+                    }
 
                     foreach ($titles as $locale => $title) {
                         $title = trim((string) $title);
@@ -971,8 +1302,21 @@ new class extends Component
                         ]);
                     }
 
+                    $keptAnswerIds[] = (int) $answer->id;
                     $answerSortOrder++;
                 }
+
+                /*
+                 * Answers removed from the form are removed from Wrangle.
+                 * The merchant receiver may reject an update that tries to
+                 * remove an outcome which already has virtual bets.
+                 */
+                $bet->answers()
+                    ->when(
+                        $keptAnswerIds !== [],
+                        fn ($query) => $query->whereNotIn('id', $keptAnswerIds)
+                    )
+                    ->delete();
 
                 $sourceSortOrder = 1;
 
@@ -1024,7 +1368,47 @@ new class extends Component
         $this->existingImagePath = $bet->image_path;
         $this->editMode = true;
 
+        /*
+         * A confirmed edit of a PUBLISHED market produces a new
+         * market.updated delivery for every merchant that had already
+         * received this market.
+         *
+         * Each update gets its own MerchantCallback row because the same
+         * market can be updated many times.
+         */
+        if ($queueMarketUpdate && $status === BetStatus::PUBLISHED) {
+            $merchantBets = $bet->merchantBets()
+                ->with('merchant')
+                ->whereNotNull('delivered_at')
+                ->get();
+
+            foreach ($merchantBets as $merchantBet) {
+                $marketUrl = $merchantBet->merchant?->market_url
+                    ? trim($merchantBet->merchant->market_url)
+                    : null;
+
+                $callback = MerchantCallback::query()->create([
+                    'merchant_id' => $merchantBet->merchant_id,
+                    'merchant_bet_id' => $merchantBet->id,
+                    'bet_id' => $bet->id,
+                    'event' => MerchantCallbackEvent::MARKET_UPDATED,
+                    'status' => MerchantCallbackStatus::PENDING,
+                    'callback_url' => $marketUrl,
+                    'attempts_count' => 0,
+                    'billable' => false,
+                    'last_error' => $marketUrl
+                        ? null
+                        : 'Merchant market delivery URL is not configured.',
+                ]);
+
+                SendMarketUpdatedToMerchant::dispatch(
+                    $callback->id
+                )->afterCommit();
+            }
+        }
+
         $message = match (true) {
+            $queueMarketUpdate => 'Market changes saved successfully. Merchant update callbacks have been queued.',
             $preserveWorkflow => 'Market changes saved successfully.',
             $status === BetStatus::DRAFT => 'Bet saved as draft.',
             $status === BetStatus::PENDING_REVIEW => 'Bet submitted for review.',
@@ -1613,7 +1997,7 @@ new class extends Component
 
         <a href="{{ route('content.bets.index') }}"
            class="inline-flex items-center justify-center rounded-xl border border-[var(--wr-border)] bg-[var(--wr-panel)] px-5 py-3 text-sm font-bold text-[var(--wr-text-soft)] transition hover:border-lime-400/40 hover:text-lime-500">
-            ← Back to Bets
+            в†ђ Back to Bets
         </a>
     </div>
 
@@ -1764,7 +2148,7 @@ new class extends Component
                                             @if($check->url && $check->url !== 'google-search')
                                                 <a href="{{ $check->url }}" target="_blank" rel="noopener noreferrer"
                                                    class="mt-2 block break-all text-sm font-semibold text-lime-400 hover:underline">
-                                                    {{ $check->url }} ↗
+                                                    {{ $check->url }} в†—
                                                 </a>
                                             @endif
                                         </div>
@@ -1773,7 +2157,7 @@ new class extends Component
                                             <div class="min-w-[115px] rounded-xl border border-[var(--wr-border)] bg-[var(--wr-panel)] px-3 py-2.5">
                                                 <div class="text-[9px] font-black uppercase tracking-wider text-[var(--wr-muted)]">AI answer</div>
                                                 <div class="mt-1 text-sm font-black {{ $check->suggestedAnswer ? 'text-[var(--wr-text)]' : 'text-[var(--wr-muted)]' }}">
-                                                    {{ $check->suggestedAnswer ? $answerTitle($check->suggestedAnswer) : '—' }}
+                                                    {{ $check->suggestedAnswer ? $answerTitle($check->suggestedAnswer) : 'вЂ”' }}
                                                 </div>
                                             </div>
                                             <div class="min-w-[100px] rounded-xl border border-[var(--wr-border)] bg-[var(--wr-panel)] px-3 py-2.5">
@@ -1871,7 +2255,7 @@ new class extends Component
                                     @disabled(! $finalAnswerId)
                                     class="inline-flex min-w-[230px] items-center justify-center rounded-xl bg-lime-400 px-6 py-3 text-sm font-black text-[#06111f] transition hover:bg-lime-300 disabled:cursor-not-allowed disabled:opacity-50">
                                 <span wire:loading.remove wire:target="openResolutionConfirmation">
-                                    ✓ Confirm & Resolve Market
+                                    вњ“ Confirm & Resolve Market
                                 </span>
                                 <span wire:loading wire:target="openResolutionConfirmation">
                                     Checking...
@@ -1981,7 +2365,7 @@ new class extends Component
                                     class="inline-flex min-w-[250px] items-center justify-center rounded-xl bg-red-500 px-6 py-3 text-sm font-black text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50">
 
                                 <span wire:loading.remove wire:target="confirmResolution">
-                                    Yes, Resolve with “{{ $selectedFinalAnswerTitle }}”
+                                    Yes, Resolve with вЂњ{{ $selectedFinalAnswerTitle }}вЂќ
                                 </span>
 
                                 <span wire:loading wire:target="confirmResolution">
@@ -2124,7 +2508,7 @@ new class extends Component
                         text-[#06111f]
                     "
                     >
-                        ✓ Approve
+                        вњ“ Approve
                     </button>
 
 
@@ -2244,7 +2628,7 @@ new class extends Component
                                     </svg>
                                 </div>
                                 <div class="mt-4 text-sm font-black text-[var(--wr-text)]">Upload market image</div>
-                                <div class="mt-1 text-xs text-[var(--wr-muted)]">PNG, JPG or WebP · maximum 5 MB</div>
+                                <div class="mt-1 text-xs text-[var(--wr-muted)]">PNG, JPG or WebP В· maximum 5 MB</div>
                                 <div class="mt-4 inline-flex rounded-xl border border-lime-400/20 bg-lime-400/10 px-4 py-2 text-xs font-black text-lime-400">Choose file</div>
                             </div>
                         @endif
@@ -2306,7 +2690,7 @@ new class extends Component
                     </select>
                     <button type="button" wire:click="addLanguage" wire:loading.attr="disabled" wire:target="addLanguage,translateLanguage"
                             class="inline-flex min-w-[180px] items-center justify-center rounded-xl bg-lime-400 px-4 py-3 text-sm font-black text-[#06111f] transition hover:bg-lime-300 disabled:cursor-not-allowed disabled:opacity-50">
-                        <span wire:loading.remove wire:target="addLanguage">✦ Add & AI Translate</span>
+                        <span wire:loading.remove wire:target="addLanguage">вњ¦ Add & AI Translate</span>
                         <span wire:loading wire:target="addLanguage">Translating...</span>
                     </button>
                     <button type="button" wire:click="addLanguageWithoutTranslation"
@@ -2319,7 +2703,7 @@ new class extends Component
             @error('newLocale') <div class="-mt-4 mb-5 text-xs font-bold text-red-400">{{ $message }}</div> @enderror
 
             @if($translationNotice)
-                <div class="mb-5 rounded-xl border border-lime-400/20 bg-lime-400/10 px-4 py-3 text-sm font-semibold text-lime-300">✦ {{ $translationNotice }}</div>
+                <div class="mb-5 rounded-xl border border-lime-400/20 bg-lime-400/10 px-4 py-3 text-sm font-semibold text-lime-300">вњ¦ {{ $translationNotice }}</div>
             @endif
 
             @if($translationError)
@@ -2349,7 +2733,7 @@ new class extends Component
                                 <div class="flex gap-2">
                                     <button type="button" wire:click="translateLanguage('{{ $locale }}')" wire:loading.attr="disabled"
                                             class="rounded-lg border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-black text-sky-300 transition hover:bg-sky-400/20 disabled:opacity-50">
-                                        ✦ AI Translate
+                                        вњ¦ AI Translate
                                     </button>
                                     <button type="button" wire:click="removeLanguage('{{ $locale }}')"
                                             class="rounded-lg border border-red-400/15 bg-red-400/5 px-3 py-2 text-xs font-black text-red-300 transition hover:bg-red-400/10">
@@ -2511,7 +2895,7 @@ new class extends Component
                                 @foreach($selectedCountries as $country)
                                     <button type="button" wire:click="removeCountry({{ $country->id }})"
                                             class="inline-flex items-center gap-2 rounded-lg border border-lime-400/15 bg-lime-400/10 px-3 py-2 text-xs font-bold text-lime-300">
-                                        {{ $country->code }} · {{ $country->name }} <span class="text-lime-200/60">×</span>
+                                        {{ $country->code }} В· {{ $country->name }} <span class="text-lime-200/60">Г—</span>
                                     </button>
                                 @endforeach
                             </div>
@@ -2574,6 +2958,79 @@ new class extends Component
             </div>
         </section>
     </div>
+
+    {{-- Published market update safety confirmation --}}
+    @if($showPublishedUpdateConfirmation)
+        <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="published-update-confirmation-title">
+
+            <button type="button"
+                    wire:click="closePublishedUpdateConfirmation"
+                    wire:loading.attr="disabled"
+                    wire:target="confirmPublishedUpdate"
+                    class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+                    aria-label="Close published market update confirmation">
+            </button>
+
+            <div class="relative z-10 w-full max-w-2xl overflow-hidden rounded-3xl border border-amber-400/30 bg-[var(--wr-panel)] shadow-2xl">
+                <div class="border-b border-amber-400/20 bg-amber-400/[0.07] px-6 py-5 sm:px-8">
+                    <div class="text-xs font-black uppercase tracking-[0.18em] text-amber-300">
+                        Published market
+                    </div>
+
+                    <h3 id="published-update-confirmation-title"
+                        class="mt-2 text-2xl font-black text-[var(--wr-text)]">
+                        Save changes and notify merchants?
+                    </h3>
+
+                    <p class="mt-2 text-sm leading-6 text-[var(--wr-muted)]">
+                        This market is already published. Saving these changes will
+                        queue a market.updated snapshot for every merchant that has
+                        already received this market.
+                    </p>
+                </div>
+
+                <div class="space-y-5 p-6 sm:p-8">
+                    <div class="rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] p-5">
+                        <div class="text-sm font-black text-amber-300">
+                            Are you sure you want to save these changes?
+                        </div>
+
+                        <div class="mt-2 text-sm leading-6 text-[var(--wr-text-soft)]">
+                            If you cancel, nothing will be written to the database
+                            and no merchant callback will be sent.
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                        <button type="button"
+                                wire:click="closePublishedUpdateConfirmation"
+                                wire:loading.attr="disabled"
+                                wire:target="confirmPublishedUpdate"
+                                class="inline-flex items-center justify-center rounded-xl border border-[var(--wr-border)] px-5 py-3 text-sm font-black text-[var(--wr-text-soft)] transition hover:border-slate-400/40 hover:text-[var(--wr-text)] disabled:opacity-50">
+                            Cancel
+                        </button>
+
+                        <button type="button"
+                                wire:click="confirmPublishedUpdate"
+                                wire:loading.attr="disabled"
+                                wire:target="confirmPublishedUpdate"
+                                class="inline-flex min-w-[260px] items-center justify-center rounded-xl bg-amber-400 px-6 py-3 text-sm font-black text-[#06111f] transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50">
+                            <span wire:loading.remove wire:target="confirmPublishedUpdate">
+                                Yes, Save & Notify Merchants
+                            </span>
+
+                            <span wire:loading wire:target="confirmPublishedUpdate">
+                                Saving & queuing callbacks...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     @if(
         ! $editMode
@@ -2647,7 +3104,7 @@ new class extends Component
                             class="inline-flex items-center justify-center rounded-xl bg-lime-400 px-6 py-3 text-sm font-black text-[#06111f] transition hover:bg-lime-300 disabled:opacity-50"
                         >
             <span wire:loading.remove wire:target="submitForReview">
-                Submit for Review →
+                Submit for Review в†’
             </span>
 
                             <span wire:loading wire:target="submitForReview">

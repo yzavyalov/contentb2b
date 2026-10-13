@@ -7,10 +7,9 @@ use App\Enums\MerchantCallbackEvent;
 use App\Enums\MerchantCallbackStatus;
 use App\Models\MerchantBet;
 use App\Models\MerchantCallback;
+use App\Services\MerchantSignedHttpService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use App\Services\MerchantSignedHttpService;
-use App\Services\MarketCountryPayloadService;
 use RuntimeException;
 use Throwable;
 
@@ -27,19 +26,12 @@ class SendMarketCancelledToMerchant implements ShouldQueue
     }
 
     public function handle(
-        MerchantSignedHttpService $signedHttp,
-        MarketCountryPayloadService $countryPayloadService
-    ): void
-    {
+        MerchantSignedHttpService $signedHttp
+    ): void {
         $merchantBet = MerchantBet::query()
             ->with([
                 'merchant',
-                'bet.translations',
-                'bet.answers.translations',
-                'bet.sources',
-                'bet.categories',
-                'bet.countries',
-                'bet.countryGroups.countries',
+                'bet',
             ])
             ->findOrFail($this->merchantBetId);
 
@@ -73,25 +65,28 @@ class SendMarketCancelledToMerchant implements ShouldQueue
         /*
          * A cancelled market must not have a final winner.
          */
-        if ($bet->resolved_at !== null || $bet->winning_answer_id !== null) {
+        if (
+            $bet->resolved_at !== null
+            || $bet->winning_answer_id !== null
+        ) {
             throw new RuntimeException(
                 "Bet #{$bet->id} already has a final resolution."
             );
         }
 
+        /*
+         * Lifecycle callbacks use callback_url.
+         */
         $callbackUrl = $merchant->callback_url
             ? trim($merchant->callback_url)
             : null;
 
-        /*
-         * Keep a callback record even when the merchant
-         * has no callback URL configured.
-         */
         if (! $callbackUrl) {
             MerchantCallback::query()->updateOrCreate(
                 [
                     'merchant_bet_id' => $merchantBet->id,
-                    'event' => MerchantCallbackEvent::MARKET_CANCELLED,
+                    'event' =>
+                        MerchantCallbackEvent::MARKET_CANCELLED,
                 ],
                 [
                     'merchant_id' => $merchant->id,
@@ -113,7 +108,8 @@ class SendMarketCancelledToMerchant implements ShouldQueue
         $callback = MerchantCallback::query()->firstOrCreate(
             [
                 'merchant_bet_id' => $merchantBet->id,
-                'event' => MerchantCallbackEvent::MARKET_CANCELLED,
+                'event' =>
+                    MerchantCallbackEvent::MARKET_CANCELLED,
             ],
             [
                 'merchant_id' => $merchant->id,
@@ -126,8 +122,7 @@ class SendMarketCancelledToMerchant implements ShouldQueue
         );
 
         /*
-         * Idempotency:
-         * successfully delivered cancellation callback
+         * Successfully delivered cancellation callback
          * is never sent twice.
          */
         if ($callback->delivered_at !== null) {
@@ -135,7 +130,7 @@ class SendMarketCancelledToMerchant implements ShouldQueue
         }
 
         /*
-         * Retry always uses the merchant's CURRENT callback_url.
+         * Retry uses the merchant's CURRENT callback_url.
          */
         $callback->update([
             'status' => MerchantCallbackStatus::PROCESSING,
@@ -144,66 +139,18 @@ class SendMarketCancelledToMerchant implements ShouldQueue
             'last_error' => null,
         ]);
 
+        /*
+         * Cancellation is a lifecycle event.
+         *
+         * No market content is repeated here.
+         */
         $payload = [
-            'event' => MerchantCallbackEvent::MARKET_CANCELLED->value,
+            'event' =>
+                MerchantCallbackEvent::MARKET_CANCELLED->value,
 
             'market' => [
                 'id' => $bet->id,
                 'status' => $betStatus,
-                'source_locale' => $bet->source_locale,
-                'finish_at' => $bet->finish_at?->toIso8601String(),
-                'published_at' => $bet->published_at?->toIso8601String(),
-                'resolved_at' => $bet->resolved_at?->toIso8601String(),
-                'winning_answer_id' => $bet->winning_answer_id,
-
-                'translations' => $bet->translations
-                    ->map(fn ($translation) => [
-                        'locale' => $translation->locale,
-                        'title' => $translation->title,
-                        'description' => $translation->description,
-                    ])
-                    ->values()
-                    ->all(),
-
-                'answers' => $bet->answers
-                    ->sortBy('sort_order')
-                    ->map(fn ($answer) => [
-                        'id' => $answer->id,
-                        'sort_order' => $answer->sort_order,
-                        'is_winner' => false,
-
-                        'translations' => $answer->translations
-                            ->map(fn ($translation) => [
-                                'locale' => $translation->locale,
-                                'title' => $translation->title,
-                            ])
-                            ->values()
-                            ->all(),
-                    ])
-                    ->values()
-                    ->all(),
-
-                'winning_answer' => null,
-
-                'sources' => $bet->sources
-                    ->sortBy('sort_order')
-                    ->map(fn ($source) => [
-                        'url' => $source->url,
-                        'sort_order' => $source->sort_order,
-                    ])
-                    ->values()
-                    ->all(),
-
-                'categories' => $bet->categories
-                    ->map(fn ($category) => [
-                        'id' => $category->id,
-                        'name' => $category->name,
-                        'slug' => $category->slug,
-                    ])
-                    ->values()
-                    ->all(),
-
-                'countries' => $countryPayloadService->forBet($bet),
             ],
         ];
 
