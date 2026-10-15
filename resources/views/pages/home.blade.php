@@ -687,6 +687,7 @@
 
             <div class="mx-auto max-w-7xl px-5 sm:px-8">
 
+                {{-- HEADER --}}
                 <div class="text-center">
 
                     <p class="text-sm font-black uppercase tracking-[0.16em] text-lime-300">
@@ -694,18 +695,19 @@
                     </p>
 
                     <h2 class="mt-3 text-3xl font-black tracking-tight sm:text-4xl">
-                        Start small. Scale when you're ready.
+                        Simple volume-based pricing.
                     </h2>
 
                     <p class="mx-auto mt-4 max-w-2xl text-slate-400">
-                        Simple infrastructure pricing with no revenue share.
-                        Start at $10 per delivered market or move to a monthly package as your volume grows.
+                        Pay for the prediction markets delivered to your platform.
+                        Your price per market decreases automatically as your monthly volume grows.
                     </p>
 
                 </div>
 
 
-                <div class="mt-10 grid gap-5 lg:grid-cols-3">
+                {{-- PRICING CARDS --}}
+                <div class="mt-12 grid gap-5 lg:grid-cols-3">
 
                     {{-- STARTER --}}
                     <div class="flex flex-col rounded-[1.5rem] border border-lime-400/30 bg-white/[0.04] p-6 sm:p-7">
@@ -714,50 +716,64 @@
                             Starter
                         </div>
 
-                        <div class="mt-4 flex items-end gap-2">
+                        <div class="mt-3 text-sm font-bold text-lime-300">
+                            Up to 599 markets / month
+                        </div>
 
-                        <span class="text-4xl font-black">
-                            $10
-                        </span>
+                        <div class="mt-5 flex items-end gap-2">
 
-                            <span class="pb-1 text-sm text-slate-400">
-                            / market
-                        </span>
+                    <span class="text-5xl font-black">
+                        $10
+                    </span>
+
+                            <span class="pb-1.5 text-sm text-slate-400">
+                        / delivered market
+                    </span>
 
                         </div>
 
-                        <p class="mt-4 min-h-12 text-sm leading-6 text-slate-400">
-                            Pay only for delivered markets. Start without a monthly commitment.
+                        <p class="mt-5 min-h-16 text-sm leading-6 text-slate-400">
+                            Start with any volume and pay only for the prediction markets
+                            actually delivered to your platform.
                         </p>
 
-                        <div class="mt-6 space-y-3">
+                        <div class="mt-7 border-t border-white/10 pt-6">
 
-                            @foreach ([
-                                '$0 monthly commitment',
-                                '$10 per delivered market',
-                                'Prediction market creation',
-                                'Multilingual localization',
-                                'Event monitoring',
-                                'AI-assisted outcome analysis',
-                                'Human verification',
-                                'Verified resolution callbacks',
-                                'API delivery',
-                            ] as $feature)
+                            <div class="mb-4 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                                Included
+                            </div>
 
-                                <div class="flex gap-3 text-sm text-slate-200">
-                                    <span class="text-lime-300">✓</span>
-                                    <span>{{ $feature }}</span>
-                                </div>
+                            <div class="space-y-3">
 
-                            @endforeach
+                                @foreach ([
+                                    'No monthly commitment',
+                                    'Pay only for delivered markets',
+                                    'Prediction market creation',
+                                    'Multiple content categories',
+                                    'Multilingual localization',
+                                    'API market delivery',
+                                    'Continuous event monitoring',
+                                    'AI-assisted outcome analysis',
+                                    'Human verification',
+                                    'Verified resolution callbacks',
+                                ] as $feature)
+
+                                    <div class="flex gap-3 text-sm text-slate-200">
+                                        <span class="shrink-0 text-lime-300">✓</span>
+                                        <span>{{ $feature }}</span>
+                                    </div>
+
+                                @endforeach
+
+                            </div>
 
                         </div>
 
                         <a
-                            href="{{ url('/pricing') }}"
+                            href="#request-demo"
                             class="mt-8 inline-flex justify-center rounded-xl bg-lime-400 px-5 py-4 text-sm font-black text-slate-950 transition hover:bg-lime-300"
                         >
-                            Start with Starter
+                            Request Demo
                         </a>
 
                     </div>
@@ -774,59 +790,64 @@
                             Growth
                         </div>
 
-                        <div class="mt-4">
+                        <div class="mt-3 text-sm font-bold text-sky-300">
+                            600–1,500 markets / month
+                        </div>
 
-                            <div class="flex items-end gap-2">
+                        <div class="mt-5 flex items-end gap-2">
 
-                            <span class="text-4xl font-black">
-                                $4,000
-                            </span>
+                    <span class="text-5xl font-black">
+                        $6.50
+                    </span>
 
-                                <span class="pb-1 text-sm text-slate-400">
-                                / month
-                            </span>
-
-                            </div>
-
-                            <div class="mt-2 text-sm font-bold text-sky-300">
-                                600 markets included
-                            </div>
+                            <span class="pb-1.5 text-sm text-slate-400">
+                        / delivered market
+                    </span>
 
                         </div>
 
-                        <p class="mt-4 min-h-12 text-sm leading-6 text-slate-400">
-                            A continuous prediction market pipeline at a lower effective cost per included market.
+                        <p class="mt-5 min-h-16 text-sm leading-6 text-slate-400">
+                            Built for growing platforms that need a continuous flow of
+                            prediction market content at a lower per-market cost.
                         </p>
 
-                        <div class="mt-6 space-y-3">
+                        <div class="mt-7 border-t border-white/10 pt-6">
 
-                            @foreach ([
-                                '600 markets included every month',
-                                'Approx. $6.67 per included market at full usage',
-                                '$10 for each additional market',
-                                'Multiple content categories',
-                                'Multiple languages',
-                                'Continuous event monitoring',
-                                'AI-assisted outcome analysis',
-                                'Human verification',
-                                'Verified resolution callbacks',
-                                'API delivery',
-                            ] as $feature)
+                            <div class="mb-4 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                                Included
+                            </div>
 
-                                <div class="flex gap-3 text-sm text-slate-200">
-                                    <span class="text-lime-300">✓</span>
-                                    <span>{{ $feature }}</span>
-                                </div>
+                            <div class="space-y-3">
 
-                            @endforeach
+                                @foreach ([
+                                    '$6.50 per delivered market',
+                                    'Volume pricing from 600 markets',
+                                    'Prediction market creation',
+                                    'Multiple content categories',
+                                    'Multiple languages and regions',
+                                    'API market delivery',
+                                    'Continuous event monitoring',
+                                    'AI-assisted outcome analysis',
+                                    'Human verification',
+                                    'Verified resolution callbacks',
+                                ] as $feature)
+
+                                    <div class="flex gap-3 text-sm text-slate-200">
+                                        <span class="shrink-0 text-sky-300">✓</span>
+                                        <span>{{ $feature }}</span>
+                                    </div>
+
+                                @endforeach
+
+                            </div>
 
                         </div>
 
                         <a
-                            href="{{ url('/pricing') }}"
+                            href="#request-demo"
                             class="mt-8 inline-flex justify-center rounded-xl bg-sky-500 px-5 py-4 text-sm font-black text-white transition hover:bg-sky-400"
                         >
-                            Choose Growth
+                            Request Demo
                         </a>
 
                     </div>
@@ -839,58 +860,64 @@
                             Scale
                         </div>
 
-                        <div class="mt-4">
+                        <div class="mt-3 text-sm font-bold text-violet-300">
+                            1,501+ markets / month
+                        </div>
 
-                            <div class="flex items-end gap-2">
+                        <div class="mt-5 flex items-end gap-2">
 
-                            <span class="text-4xl font-black">
-                                $8,000
-                            </span>
+                    <span class="text-5xl font-black">
+                        $5
+                    </span>
 
-                                <span class="pb-1 text-sm text-slate-400">
-                                / month
-                            </span>
-
-                            </div>
-
-                            <div class="mt-2 text-sm font-bold text-violet-300">
-                                Unlimited markets
-                            </div>
+                            <span class="pb-1.5 text-sm text-slate-400">
+                        / delivered market
+                    </span>
 
                         </div>
 
-                        <p class="mt-4 min-h-12 text-sm leading-6 text-slate-400">
-                            Predictable fixed monthly pricing for high-volume operators.
+                        <p class="mt-5 min-h-16 text-sm leading-6 text-slate-400">
+                            Our lowest per-market rate for high-volume operators running
+                            prediction market content at scale.
                         </p>
 
-                        <div class="mt-6 space-y-3">
+                        <div class="mt-7 border-t border-white/10 pt-6">
 
-                            @foreach ([
-                                'Unlimited market volume',
-                                'No additional per-market charges',
-                                'Multiple content categories',
-                                'Multiple languages',
-                                'Continuous event monitoring',
-                                'AI-assisted outcome analysis',
-                                'Human verification',
-                                'Verified resolution callbacks',
-                                'API delivery',
-                            ] as $feature)
+                            <div class="mb-4 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                                Included
+                            </div>
 
-                                <div class="flex gap-3 text-sm text-slate-200">
-                                    <span class="text-lime-300">✓</span>
-                                    <span>{{ $feature }}</span>
-                                </div>
+                            <div class="space-y-3">
 
-                            @endforeach
+                                @foreach ([
+                                    '$5 per delivered market',
+                                    'No market volume limit',
+                                    'Prediction market creation',
+                                    'Multiple content categories',
+                                    'Multiple languages and regions',
+                                    'API market delivery',
+                                    'Continuous event monitoring',
+                                    'AI-assisted outcome analysis',
+                                    'Human verification',
+                                    'Verified resolution callbacks',
+                                ] as $feature)
+
+                                    <div class="flex gap-3 text-sm text-slate-200">
+                                        <span class="shrink-0 text-violet-300">✓</span>
+                                        <span>{{ $feature }}</span>
+                                    </div>
+
+                                @endforeach
+
+                            </div>
 
                         </div>
 
                         <a
-                            href="{{ url('/pricing') }}"
+                            href="#request-demo"
                             class="mt-8 inline-flex justify-center rounded-xl bg-violet-600 px-5 py-4 text-sm font-black text-white transition hover:bg-violet-500"
                         >
-                            Choose Scale
+                            Request Demo
                         </a>
 
                     </div>
@@ -898,63 +925,26 @@
                 </div>
 
 
-                <div class="mt-8 text-center">
+                {{-- EXPLANATION --}}
+                <div class="mx-auto mt-10 max-w-4xl rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-7">
 
-                    <a
-                        href="{{ url('/pricing') }}"
-                        class="text-sm font-bold text-slate-400 transition hover:text-white"
-                    >
-                        Compare plans and pricing details →
-                    </a>
+                    <div class="grid gap-6 sm:grid-cols-[auto_1fr] sm:items-start">
 
-                </div>
-
-            </div>
-
-        </section>
-
-
-
-        {{-- FINAL CTA --}}
-        <section id="demo" class="bg-white py-14 sm:py-16">
-
-            <div class="mx-auto max-w-7xl px-5 sm:px-8">
-
-                <div class="overflow-hidden rounded-[1.5rem] bg-gradient-to-r from-cyan-600 via-blue-700 to-violet-700 p-7 text-white shadow-xl sm:p-10">
-
-                    <div class="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
-
-                        <div class="max-w-2xl">
-
-                            <h2 class="text-3xl font-black tracking-tight">
-                                Add prediction markets without building the entire operation behind them.
-                            </h2>
-
-                            <p class="mt-3 leading-7 text-white/80">
-                                One API integration for market creation, localization,
-                                monitoring and verified resolution delivery.
-                            </p>
-
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-lime-400/10 text-xl font-black text-lime-300">
+                            $
                         </div>
 
+                        <div>
 
-                        <div class="flex flex-col gap-3 sm:flex-row">
+                            <h3 class="font-black text-white">
+                                Your rate follows your monthly volume.
+                            </h3>
 
-                            <a
-                                href="mailto:sales@wrangle.win"
-                                class="rounded-xl bg-lime-400 px-6 py-4 text-center text-sm font-black text-slate-950 transition hover:bg-lime-300"
-                            >
-                                Get API Access
-                            </a>
-
-                            <a
-                                href="https://example.wrangle.win"
-                                target="_blank"
-                                rel="noopener"
-                                class="rounded-xl border border-white/25 px-6 py-4 text-center text-sm font-black text-white transition hover:bg-white/10"
-                            >
-                                View Live Demo ↗
-                            </a>
+                            <p class="mt-2 text-sm leading-6 text-slate-400">
+                                Pricing is based on the number of prediction markets delivered
+                                to your platform during the month. As your volume grows, your
+                                per-market rate moves to the corresponding pricing tier.
+                            </p>
 
                         </div>
 
@@ -965,6 +955,11 @@
             </div>
 
         </section>
+
+
+
+        {{-- REQUEST DEMO --}}
+        <livewire:public.request-demo />
 
 
 
