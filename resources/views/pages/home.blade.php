@@ -1,8 +1,8 @@
 @extends('layouts.public')
 
-@section('title', 'wrangle.win — Prediction Market Content Infrastructure')
+@section('title', 'wrangle.win — Content Built for Prediction Markets')
 
-@section('description', 'Launch prediction markets without building an in-house content and resolution operation. wrangle.win creates, localizes, monitors and resolves prediction markets delivered through API.')
+@section('description', 'wrangle.win is a specialist content studio serving gambling, sportsbook, casino and gaming businesses with prediction market creation, localisation, monitoring and verified resolution delivered through API.')
 
 @section('content')
 
@@ -25,58 +25,39 @@
                     <div>
 
                         <div class="inline-flex rounded-full border border-lime-400/30 bg-lime-400/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-lime-300">
-                            Prediction Market Content Infrastructure
+                            Content built for prediction markets.
                         </div>
 
                         <h1 class="mt-6 max-w-2xl text-5xl font-black leading-[0.98] tracking-tight sm:text-6xl xl:text-7xl">
-                            Launch Prediction Markets.
+                            CONTENT IS COMPLICATED.
 
                             <span class="mt-2 block bg-gradient-to-r from-lime-300 via-emerald-300 to-cyan-300 bg-clip-text text-transparent">
-                            We Handle the Rest.
-                        </span>
+                                WE WRANGLE IT.
+                            </span>
                         </h1>
 
-                        <p class="mt-7 max-w-xl text-lg leading-8 text-slate-300">
-                            Add prediction markets to your platform without building an in-house
-                            content and resolution operation.
-                            We create structured markets, localize them, deliver them through API,
-                            monitor real-world events and send verified resolution callbacks when
-                            outcomes are known.
+                        <p class="mt-7 max-w-2xl text-lg leading-8 text-slate-300">
+                            wrangle.win is a specialist content studio serving gambling,
+                            sportsbook, casino and gaming businesses. We handle the content
+                            and resolution layer end to end — from structured market creation
+                            and localisation to real-world event monitoring and verified
+                            resolution callbacks, all delivered through API.
                         </p>
 
                         <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
 
                             <a
-                                href="{{ url('/docs/getting-started') }}"
+                                href="#request-demo"
                                 class="inline-flex items-center justify-center rounded-xl bg-lime-400 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-lime-300"
                             >
-                                Get API Access
+                                Request Demo
                             </a>
 
                             <a
-                                href="https://example.wrangle.win"
-                                target="_blank"
-                                rel="noopener"
-                                class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 px-6 py-4 text-sm font-black text-white transition hover:bg-white/5"
-                            >
-                                View Live Demo
-
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    class="h-4 w-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                >
-                                    <path d="M14 5h5v5M10 14L19 5M19 13v6H5V5h6"/>
-                                </svg>
-                            </a>
-
-                            <a
-                                href="#demo"
+                                href="{{ url('/docs/getting-started') }}"
                                 class="inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-4 text-sm font-black text-white transition hover:bg-white/5"
                             >
-                                Contact Sales
+                                API Documentation
                             </a>
 
                         </div>
@@ -94,7 +75,14 @@
                             <div>
                                 <div class="text-2xl font-black text-lime-300">API</div>
                                 <div class="mt-1 text-xs font-semibold text-slate-400">
-                                    Market Delivery
+                                    Content Delivery
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="text-2xl font-black text-lime-300">24/7</div>
+                                <div class="mt-1 text-xs font-semibold text-slate-400">
+                                    Event Monitoring
                                 </div>
                             </div>
 
@@ -105,19 +93,12 @@
                                 </div>
                             </div>
 
-                            <div>
-                                <div class="text-2xl font-black text-lime-300">0%</div>
-                                <div class="mt-1 text-xs font-semibold text-slate-400">
-                                    Revenue Share
-                                </div>
-                            </div>
-
                         </div>
 
                     </div>
 
 
-                    {{-- Live markets preview --}}
+                    {{-- Example content --}}
                     <div class="relative">
 
                         <div class="absolute -inset-6 rounded-[2rem] bg-emerald-500/10 blur-3xl"></div>
@@ -137,9 +118,9 @@
                                 </div>
 
                                 <span class="inline-flex items-center gap-2 text-xs font-bold text-lime-300">
-                                <span class="h-2 w-2 rounded-full bg-lime-400"></span>
-                                API Ready
-                            </span>
+                                    <span class="h-2 w-2 rounded-full bg-lime-400"></span>
+                                    API Ready
+                                </span>
 
                             </div>
 
@@ -147,7 +128,7 @@
                             <div class="divide-y divide-white/10">
 
                                 @foreach ([
-                                    ['₿', 'CRYPTO', 'Will Bitcoin trade above $150,000 on December 31?', 'Yes', 'No'],
+                                    ['₿', 'CRYPTO', 'Will Bitcoin trade above $150,000 by the end of 2026?', 'Yes', 'No'],
                                     ['⚽', 'SPORTS', 'Will the home team win the championship final?', 'Yes', 'No'],
                                     ['🏛️', 'POLITICS', 'Will the proposed legislation pass before the deadline?', 'Yes', 'No'],
                                     ['📈', 'FINANCE', 'Will the selected index close above the target level?', 'Yes', 'No'],
@@ -161,9 +142,9 @@
 
                                         <div>
 
-                                        <span class="rounded-md bg-violet-500/15 px-2 py-1 text-[10px] font-black text-violet-300">
-                                            {{ $tag }}
-                                        </span>
+                                            <span class="rounded-md bg-violet-500/15 px-2 py-1 text-[10px] font-black text-violet-300">
+                                                {{ $tag }}
+                                            </span>
 
                                             <p class="mt-2 text-sm font-bold leading-snug text-white">
                                                 {{ $question }}
@@ -199,12 +180,10 @@
 
 
                             <a
-                                href="https://example.wrangle.win"
-                                target="_blank"
-                                rel="noopener"
+                                href="#request-demo"
                                 class="flex items-center justify-center gap-2 border-t border-white/10 px-5 py-5 text-sm font-black text-cyan-300 transition hover:bg-white/[0.03]"
                             >
-                                Explore markets on our live demo
+                                Request a tailored content demo
                                 <span>→</span>
                             </a>
 
@@ -225,21 +204,22 @@
 
             <div class="mx-auto max-w-7xl px-5 sm:px-8">
 
-                <div class="mx-auto max-w-3xl text-center">
+                <div class="mx-auto max-w-4xl text-center">
 
                     <p class="text-sm font-black uppercase tracking-[0.16em] text-emerald-600">
-                        Infrastructure, not another betting platform
+                        Content that keeps up
                     </p>
 
                     <h2 class="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-                        You run the platform.
-                        <span class="text-emerald-600">We run the content operation.</span>
+                        The gambling industry moves quickly.
+                        <span class="text-emerald-600">
+                            Your content needs to move with it.
+                        </span>
                     </h2>
 
-                    <p class="mt-5 text-lg leading-8 text-slate-600">
-                        Your users, balances, positions, commercial model and settlement economics
-                        remain inside your platform. wrangle.win provides the prediction market
-                        content layer behind the experience.
+                    <p class="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-600">
+                        We help you wrangle the content, so you can focus on your users
+                        and your business. Leave it to us.
                     </p>
 
                 </div>
@@ -251,12 +231,12 @@
                         [
                             '✦',
                             'Market Creation',
-                            'Structured prediction markets with clear outcomes and defined resolution conditions.'
+                            'Structured prediction markets researched and prepared with clear outcomes and resolution conditions.'
                         ],
                         [
                             '🌍',
-                            'Multilingual Content',
-                            'Deliver localized prediction market content across languages and regions.'
+                            'Localised Content',
+                            'Prediction market content prepared across languages and regions for the audiences you serve.'
                         ],
                         [
                             '◉',
@@ -304,16 +284,16 @@
                 <div class="text-center">
 
                     <p class="text-sm font-black uppercase tracking-[0.16em] text-emerald-600">
-                        Workflow
+                        How it works
                     </p>
 
                     <h2 class="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-                        From market idea to verified result
+                        WE TAKE IT FROM HERE
                     </h2>
 
                     <p class="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">
-                        One integration gives your platform a continuous prediction market
-                        content and resolution pipeline.
+                        From creation to resolution, wrangle.win manages the prediction
+                        market content lifecycle and delivers it directly to your platform.
                     </p>
 
                 </div>
@@ -322,11 +302,11 @@
                 <div class="mt-12 grid gap-7 sm:grid-cols-2 lg:grid-cols-5">
 
                     @foreach ([
-                        ['01', 'We Create', 'Markets are researched and prepared with structured outcomes and resolution conditions.'],
-                        ['02', 'API Delivery', 'Receive market content in the categories and languages required by your platform.'],
-                        ['03', 'You Publish', 'Choose what to publish and manage the customer experience entirely on your side.'],
-                        ['04', 'We Monitor', 'The underlying event is continuously monitored using defined result sources and conditions.'],
-                        ['05', 'We Resolve', 'Verified outcomes are delivered back to your platform through resolution callbacks.'],
+                        ['01', 'Creation', 'We research, structure and prepare markets for publication and resolution.'],
+                        ['02', 'API Delivery', 'Structured market content is delivered directly to your platform through API.'],
+                        ['03', 'Publishing', 'Choose the markets you want and publish them within your own product experience.'],
+                        ['04', 'Monitoring', 'We monitor the underlying real-world events and the sources required for resolution.'],
+                        ['05', 'Resolution', 'Verified outcomes are delivered back to your platform through resolution callbacks.'],
                     ] as [$num, $title, $text])
 
                         <div>
@@ -355,174 +335,79 @@
 
 
 
-        {{-- API --}}
+        {{-- API / SEE IT IN ACTION --}}
         <section id="api" class="bg-[#07111f] py-16 text-white sm:py-20">
 
             <div class="mx-auto max-w-7xl px-5 sm:px-8">
 
-                <div class="grid gap-12 lg:grid-cols-[0.75fr_1.25fr] lg:items-center">
+                <div class="text-center">
 
-                    <div>
+                    <p class="text-sm font-black uppercase tracking-[0.16em] text-lime-300">
+                        API Delivery
+                    </p>
 
-                        <p class="text-sm font-black uppercase tracking-[0.16em] text-lime-300">
-                            API First
-                        </p>
+                    <h2 class="mt-3 text-3xl font-black tracking-tight sm:text-4xl">
+                        SEE IT IN ACTION
+                    </h2>
 
-                        <h2 class="mt-3 text-3xl font-black tracking-tight sm:text-4xl">
-                            Content in.
-                            <span class="block text-lime-300">
-                            Verified results back.
-                        </span>
-                        </h2>
+                    <p class="mx-auto mt-4 max-w-3xl leading-7 text-slate-300">
+                        Receive structured prediction market content directly into your
+                        platform. When the result is known, receive the verified winning
+                        outcome through a resolution callback.
+                    </p>
 
-                        <p class="mt-5 max-w-lg leading-7 text-slate-300">
-                            Receive structured prediction markets through API and integrate
-                            them into your existing product. When an event is resolved,
-                            your platform receives the verified outcome.
-                        </p>
+                </div>
 
 
-                        <div class="mt-8 space-y-4">
+                <div class="mt-12 grid gap-5 lg:grid-cols-2">
 
-                            <div class="flex gap-3">
+                    {{-- Example Request --}}
+                    <div class="overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#0b1727]">
 
-                                <span class="mt-0.5 text-lime-300">✓</span>
+                        <div class="flex items-center justify-between border-b border-white/10 px-5 py-4">
 
-                                <div>
-                                    <div class="font-bold">Structured market data</div>
-                                    <div class="mt-1 text-sm text-slate-400">
-                                        Questions, outcomes, dates, sources and resolution rules.
-                                    </div>
+                            <div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                    Market Delivery
                                 </div>
 
+                                <div class="mt-1 font-black">
+                                    Example Request
+                                </div>
                             </div>
 
-                            <div class="flex gap-3">
-
-                                <span class="mt-0.5 text-lime-300">✓</span>
-
-                                <div>
-                                    <div class="font-bold">Multilingual delivery</div>
-                                    <div class="mt-1 text-sm text-slate-400">
-                                        Integrate localized content without maintaining your own content operation.
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <div class="flex gap-3">
-
-                                <span class="mt-0.5 text-lime-300">✓</span>
-
-                                <div>
-                                    <div class="font-bold">Resolution callbacks</div>
-                                    <div class="mt-1 text-sm text-slate-400">
-                                        Receive the verified winning outcome after resolution.
-                                    </div>
-                                </div>
-
-                            </div>
-
-                        </div>
-
-
-                        <a
-                            href="{{ url('/docs/getting-started') }}"
-                            class="mt-8 inline-flex rounded-xl bg-lime-400 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-lime-300"
-                        >
-                            Read API Documentation →
-                        </a>
-
-                    </div>
-
-
-                    {{-- API examples --}}
-                    <div class="grid gap-5 xl:grid-cols-2">
-
-                        {{-- Market --}}
-                        <div class="overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#0b1727]">
-
-                            <div class="flex items-center justify-between border-b border-white/10 px-5 py-4">
-
-                                <div>
-                                    <div class="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                        Market Delivery
-                                    </div>
-
-                                    <div class="mt-1 font-black">
-                                        Example Market
-                                    </div>
-                                </div>
-
-                                <span class="rounded-md bg-emerald-400/10 px-2 py-1 text-xs font-bold text-emerald-300">
+                            <span class="rounded-md bg-emerald-400/10 px-2 py-1 text-xs font-bold text-emerald-300">
                                 JSON
                             </span>
 
-                            </div>
-
-                            <pre class="overflow-x-auto p-5 text-[11px] leading-5 text-slate-300"><code>{
-  "id": 18452,
-  "category": "crypto",
-  "language": "en",
-  "question":
-    "Will Bitcoin trade above
-     $150,000 on December 31?",
-  "outcomes": [
-    "yes",
-    "no"
-  ],
-  "end_at":
-    "2026-12-31T23:59:59Z",
-  "result_sources": [
-    "https://source-one.example/",
-    "https://source-two.example/"
-  ],
-  "resolution_rule":
-    "Bitcoin price must be above
-     $150,000 at the specified
-     market end time.",
-  "status": "published"
-}</code></pre>
-
                         </div>
 
-
-                        {{-- Callback --}}
-                        <div class="overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#0b1727]">
-
-                            <div class="flex items-center justify-between border-b border-white/10 px-5 py-4">
-
-                                <div>
-                                    <div class="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                        Resolution Callback
-                                    </div>
-
-                                    <div class="mt-1 font-black">
-                                        Verified Outcome
-                                    </div>
-                                </div>
-
-                                <span class="rounded-md bg-violet-400/10 px-2 py-1 text-xs font-bold text-violet-300">
-                                WEBHOOK
-                            </span>
-
-                            </div>
-
-                            <pre class="overflow-x-auto p-5 text-[11px] leading-5 text-slate-300"><code>{
-  "event": "market.resolved",
+                        <pre class="overflow-x-auto p-5 text-[11px] leading-5 text-slate-300"><code>{
+  "event": "market.published",
   "market": {
     "id": 572,
-    "status": "resolved",
+    "status": "published",
     "source_locale": "en",
-    "resolved_at":
-      "2026-10-15T18:15:00+00:00",
-    "winning_answer_id": 1141,
+    "finish_at":
+      "2026-12-31T23:59:59+00:00",
+    "published_at":
+      "2026-10-15T12:00:00+00:00",
+
+    "translations": [
+      {
+        "locale": "en",
+        "title":
+          "Will Bitcoin trade above
+           $150,000 by the end of 2026?",
+        "description":
+          "Market resolves Yes if..."
+      }
+    ],
 
     "answers": [
       {
         "id": 1141,
         "sort_order": 1,
-        "is_winner": true,
         "translations": [
           {
             "locale": "en",
@@ -533,25 +418,65 @@
       {
         "id": 1142,
         "sort_order": 2,
-        "is_winner": false
+        "translations": [
+          {
+            "locale": "en",
+            "title": "No"
+          }
+        ]
       }
-    ],
-
-    "winning_answer": {
-      "id": 1141,
-      "translations": [
-        {
-          "locale": "en",
-          "title": "Yes"
-        }
-      ]
-    }
+    ]
   }
 }</code></pre>
 
+                    </div>
+
+
+                    {{-- Resolution Callback --}}
+                    <div class="overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#0b1727]">
+
+                        <div class="flex items-center justify-between border-b border-white/10 px-5 py-4">
+
+                            <div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                    Resolution Callback
+                                </div>
+
+                                <div class="mt-1 font-black">
+                                    Verified Outcome
+                                </div>
+                            </div>
+
+                            <span class="rounded-md bg-violet-400/10 px-2 py-1 text-xs font-bold text-violet-300">
+                                WEBHOOK
+                            </span>
+
                         </div>
 
+                        <pre class="overflow-x-auto p-5 text-[11px] leading-5 text-slate-300"><code>{
+  "event": "market.resolved",
+  "market": {
+    "id": 572,
+    "status": "resolved",
+    "resolved_at":
+      "2026-12-31T23:59:59+00:00",
+    "winning_answer_id": 1141
+  }
+}</code></pre>
+
                     </div>
+
+                </div>
+
+
+                <div class="mt-8 text-center">
+
+                    <a
+                        href="{{ url('/docs/getting-started') }}"
+                        class="inline-flex rounded-xl bg-lime-400 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-lime-300"
+                    >
+                        Read API Documentation →
+                    </a>
 
                 </div>
 
@@ -573,12 +498,15 @@
                     </p>
 
                     <h2 class="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-                        Markets across the topics your users follow
+                        We understand the industry.
+                        <span class="block text-emerald-600">
+                            We understand the audience. We understand the content.
+                        </span>
                     </h2>
 
-                    <p class="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">
-                        Build a broad prediction market offering without maintaining
-                        separate research and content teams for every category.
+                    <p class="mx-auto mt-4 max-w-3xl leading-7 text-slate-600">
+                        Prediction market content across the topics your users follow,
+                        researched, structured, localised and ready for delivery.
                     </p>
 
                 </div>
@@ -619,75 +547,11 @@
 
 
 
-        {{-- NO REVENUE SHARE --}}
-        <section class="border-y border-slate-200 bg-slate-50 py-16">
-
-            <div class="mx-auto max-w-7xl px-5 sm:px-8">
-
-                <div class="grid gap-10 lg:grid-cols-[1fr_0.8fr] lg:items-center">
-
-                    <div>
-
-                        <p class="text-sm font-black uppercase tracking-[0.16em] text-emerald-600">
-                            Your economics stay yours
-                        </p>
-
-                        <h2 class="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-                            0% Revenue Share
-                        </h2>
-
-                        <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-                            wrangle.win charges for prediction market content and infrastructure.
-                            We do not take a percentage of your revenue, customer stakes,
-                            winnings or payouts.
-                        </p>
-
-                        <p class="mt-4 max-w-2xl leading-7 text-slate-600">
-                            You control how users participate, how positions are calculated,
-                            how balances are managed and how customers are settled.
-                        </p>
-
-                    </div>
-
-
-                    <div class="grid grid-cols-2 gap-4">
-
-                        <div class="rounded-2xl bg-white p-6 shadow-sm">
-                            <div class="text-3xl font-black text-emerald-600">0%</div>
-                            <div class="mt-2 font-black text-slate-950">Revenue Share</div>
-                        </div>
-
-                        <div class="rounded-2xl bg-white p-6 shadow-sm">
-                            <div class="text-3xl font-black text-emerald-600">0%</div>
-                            <div class="mt-2 font-black text-slate-950">Stake Percentage</div>
-                        </div>
-
-                        <div class="rounded-2xl bg-white p-6 shadow-sm">
-                            <div class="text-xl font-black text-emerald-600">Your</div>
-                            <div class="mt-2 font-black text-slate-950">Users & Balances</div>
-                        </div>
-
-                        <div class="rounded-2xl bg-white p-6 shadow-sm">
-                            <div class="text-xl font-black text-emerald-600">Your</div>
-                            <div class="mt-2 font-black text-slate-950">Commercial Model</div>
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </section>
-
-
-
         {{-- PRICING --}}
         <section id="pricing" class="bg-[#07111f] py-16 text-white sm:py-20">
 
             <div class="mx-auto max-w-7xl px-5 sm:px-8">
 
-                {{-- HEADER --}}
                 <div class="text-center">
 
                     <p class="text-sm font-black uppercase tracking-[0.16em] text-lime-300">
@@ -706,7 +570,6 @@
                 </div>
 
 
-                {{-- PRICING CARDS --}}
                 <div class="mt-12 grid gap-5 lg:grid-cols-3">
 
                     {{-- STARTER --}}
@@ -722,13 +585,13 @@
 
                         <div class="mt-5 flex items-end gap-2">
 
-                    <span class="text-5xl font-black">
-                        $10
-                    </span>
+                            <span class="text-5xl font-black">
+                                $10
+                            </span>
 
                             <span class="pb-1.5 text-sm text-slate-400">
-                        / delivered market
-                    </span>
+                                / delivered market
+                            </span>
 
                         </div>
 
@@ -750,7 +613,7 @@
                                     'Pay only for delivered markets',
                                     'Prediction market creation',
                                     'Multiple content categories',
-                                    'Multilingual localization',
+                                    'Multilingual localisation',
                                     'API market delivery',
                                     'Continuous event monitoring',
                                     'AI-assisted outcome analysis',
@@ -796,13 +659,13 @@
 
                         <div class="mt-5 flex items-end gap-2">
 
-                    <span class="text-5xl font-black">
-                        $6.50
-                    </span>
+                            <span class="text-5xl font-black">
+                                $6.50
+                            </span>
 
                             <span class="pb-1.5 text-sm text-slate-400">
-                        / delivered market
-                    </span>
+                                / delivered market
+                            </span>
 
                         </div>
 
@@ -866,13 +729,13 @@
 
                         <div class="mt-5 flex items-end gap-2">
 
-                    <span class="text-5xl font-black">
-                        $5
-                    </span>
+                            <span class="text-5xl font-black">
+                                $5
+                            </span>
 
                             <span class="pb-1.5 text-sm text-slate-400">
-                        / delivered market
-                    </span>
+                                / delivered market
+                            </span>
 
                         </div>
 
@@ -925,7 +788,6 @@
                 </div>
 
 
-                {{-- EXPLANATION --}}
                 <div class="mx-auto mt-10 max-w-4xl rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-7">
 
                     <div class="grid gap-6 sm:grid-cols-[auto_1fr] sm:items-start">
@@ -973,7 +835,7 @@
                 </div>
 
                 <div>
-                    Prediction Market Content Infrastructure
+                    Content built for prediction markets.
                 </div>
 
                 <div>
