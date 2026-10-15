@@ -51,6 +51,16 @@
 
 </head>
 
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-JB9N1WTNT8"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-JB9N1WTNT8');
+</script>
+
 <body class="min-h-screen bg-[#07111f] text-white antialiased">
 
 <header
