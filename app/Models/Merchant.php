@@ -10,6 +10,7 @@ class Merchant extends Model
 {
     protected $fillable = [
         'user_id',
+        'agent_id',
         'name',
 
         // Legacy field. Пока оставляем для обратной совместимости.
@@ -35,6 +36,14 @@ class Merchant extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function agent(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'agent_id'
+        );
     }
 
     public function tokens(): HasMany

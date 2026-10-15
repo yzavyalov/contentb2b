@@ -209,7 +209,13 @@
                 style="border-color: var(--wr-border);"
             >
                 <a
-                    href="{{ auth()->user()->isMerchant() ? route('merchant.dashboard') : route('dashboard') }}"
+                    href="{{
+                                auth()->user()->isMerchant()
+                                    ? route('merchant.dashboard')
+                                    : (auth()->user()->isAgent()
+                                        ? route('agent.dashboard')
+                                        : route('dashboard'))
+                            }}"
                     class="wr-text text-2xl font-black tracking-tight"
                 >
                     wrangle<span class="text-lime-400">.win</span>
@@ -221,14 +227,26 @@
             <nav class="flex-1 space-y-1 overflow-y-auto px-4 py-6">
 
                 <a
-                    href="{{ auth()->user()->isMerchant() ? route('merchant.dashboard') : route('dashboard') }}"
+                    href="{{
+                                auth()->user()->isMerchant()
+                                    ? route('merchant.dashboard')
+                                    : (auth()->user()->isAgent()
+                                        ? route('agent.dashboard')
+                                        : route('dashboard'))
+                            }}"
                     class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition {{
-                        (auth()->user()->isMerchant()
-                            ? request()->routeIs('merchant.dashboard')
-                            : request()->routeIs('dashboard'))
-                            ? 'wr-nav-active'
-                            : 'wr-nav'
-                    }}"
+                                (
+                                    auth()->user()->isMerchant()
+                                        ? request()->routeIs('merchant.dashboard')
+                                        : (
+                                            auth()->user()->isAgent()
+                                                ? request()->routeIs('agent.*')
+                                                : request()->routeIs('dashboard')
+                                        )
+                                )
+                                    ? 'wr-nav-active'
+                                    : 'wr-nav'
+                            }}"
                 >
                     Dashboard
                 </a>

@@ -3,15 +3,60 @@
 use App\Enums\BetStatus;
 use App\Enums\UserRole;
 use App\Models\Bet;
+use App\Models\MerchantBet;
 use Carbon\Carbon;
-use Livewire\Component;
 use Illuminate\Support\Facades\Artisan;
-
+use Livewire\Component;
 
 new class extends Component
 {
-    public string $period = '30';
+    public string $month = '';
 
+    public function mount(): void
+    {
+        $this->month = now()->format('Y-m');
+    }
+
+    public function updatedMonth(): void
+    {
+        if (! preg_match('/^\d{4}-\d{2}$/', $this->month)) {
+            $this->month = now()->format('Y-m');
+
+            return;
+        }
+
+        try {
+            $date = Carbon::createFromFormat('!Y-m', $this->month);
+
+            if (
+                ! $date
+                || $date->format('Y-m') !== $this->month
+                || $date->copy()->startOfMonth()->gt(now()->startOfMonth())
+            ) {
+                $this->month = now()->format('Y-m');
+            }
+        } catch (\Throwable) {
+            $this->month = now()->format('Y-m');
+        }
+    }
+
+    public function previousMonth(): void
+    {
+        $this->month = Carbon::createFromFormat('!Y-m', $this->month)
+            ->subMonth()
+            ->format('Y-m');
+    }
+
+    public function nextMonth(): void
+    {
+        $nextMonth = Carbon::createFromFormat('!Y-m', $this->month)
+            ->addMonth()
+            ->startOfMonth();
+
+        if ($nextMonth->lte(now()->startOfMonth())) {
+            $this->month = $nextMonth->format('Y-m');
+        }
+    }
 
     public function with(): array
     {
@@ -19,134 +64,176 @@ new class extends Component
 
         /*
         |--------------------------------------------------------------------------
-        | BASE QUERY
+        | SELECTED MONTH
         |--------------------------------------------------------------------------
         */
 
-        $base = Bet::query();
+        try {
+            $selectedMonth = Carbon::createFromFormat('!Y-m', $this->month)
+                ->startOfMonth();
+        } catch (\Throwable) {
+            $selectedMonth = now()->startOfMonth();
+            $this->month = $selectedMonth->format('Y-m');
+        }
+
+        $monthStart = $selectedMonth->copy()->startOfMonth();
+        $monthEnd = $selectedMonth->copy()->endOfMonth();
 
         /*
-         * Content Manager видит только свои данные.
-         */
+        |--------------------------------------------------------------------------
+        | USER BETS
+        |--------------------------------------------------------------------------
+        |
+        | Content Manager sees only bets created by them.
+        | Supervisor/Admin sees all bets.
+        |
+        */
+
+        $userBets = Bet::query();
+
         if ($user->role === UserRole::CONTENT_MANAGER) {
-            $base->where(
+            $userBets->where(
                 'created_by_user_id',
                 $user->id
             );
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | TOTAL COUNTERS
+        | BETS CREATED DURING SELECTED MONTH
         |--------------------------------------------------------------------------
         */
 
-        $total = (clone $base)->count();
+        $monthBets = (clone $userBets)
+            ->whereBetween(
+                'created_at',
+                [$monthStart, $monthEnd]
+            );
 
-        $draft = (clone $base)
+        /*
+        |--------------------------------------------------------------------------
+        | MONTH COUNTERS
+        |--------------------------------------------------------------------------
+        */
+
+        $total = (clone $monthBets)->count();
+
+        $draft = (clone $monthBets)
             ->where('status', BetStatus::DRAFT->value)
             ->count();
 
-        $pending = (clone $base)
+        $pending = (clone $monthBets)
             ->where('status', BetStatus::PENDING_REVIEW->value)
             ->count();
 
-        $approved = (clone $base)
+        $approved = (clone $monthBets)
             ->whereNotNull('approved_at')
             ->count();
 
-        $rejected = (clone $base)
+        $rejected = (clone $monthBets)
             ->whereNotNull('rejected_at')
             ->count();
 
-        $published = (clone $base)
+        $published = (clone $monthBets)
             ->whereNotNull('published_at')
             ->count();
 
-        $resolved = (clone $base)
+        $resolved = (clone $monthBets)
             ->whereNotNull('resolved_at')
             ->count();
 
+        /*
+        |--------------------------------------------------------------------------
+        | MERCHANT DELIVERIES DURING SELECTED MONTH
+        |--------------------------------------------------------------------------
+        |
+        | Здесь месяц определяется по delivered_at.
+        |
+        | Поэтому если бет был создан в сентябре, но мерчант получил его
+        | в октябре, эта доставка попадёт в октябрь.
+        |
+        | Один бет, доставленный пяти мерчантам, считается как 5 доставок.
+        |
+        */
+
+        $delivered = MerchantBet::query()
+            ->whereNotNull('delivered_at')
+            ->whereBetween(
+                'delivered_at',
+                [$monthStart, $monthEnd]
+            )
+            ->whereIn(
+                'bet_id',
+                (clone $userBets)->select('id')
+            )
+            ->count();
 
         /*
         |--------------------------------------------------------------------------
-        | PERIOD
+        | DAILY ACTIVITY FOR SELECTED MONTH
         |--------------------------------------------------------------------------
         */
 
-        $days = in_array(
-            $this->period,
-            ['7', '14', '30', '90'],
-            true
-        )
-            ? (int) $this->period
-            : 30;
-
-
-        $startDate = now()
-            ->startOfDay()
-            ->subDays($days - 1);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | DAILY DATA
-        |--------------------------------------------------------------------------
-        */
-
-        $createdRows = (clone $base)
-            ->where('created_at', '>=', $startDate)
+        $createdRows = (clone $userBets)
+            ->whereBetween(
+                'created_at',
+                [$monthStart, $monthEnd]
+            )
             ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
             ->groupBy('day')
             ->pluck('total', 'day');
 
-
-        $approvedRows = (clone $base)
+        $approvedRows = (clone $userBets)
             ->whereNotNull('approved_at')
-            ->where('approved_at', '>=', $startDate)
+            ->whereBetween(
+                'approved_at',
+                [$monthStart, $monthEnd]
+            )
             ->selectRaw('DATE(approved_at) as day, COUNT(*) as total')
             ->groupBy('day')
             ->pluck('total', 'day');
 
-
-        $rejectedRows = (clone $base)
+        $rejectedRows = (clone $userBets)
             ->whereNotNull('rejected_at')
-            ->where('rejected_at', '>=', $startDate)
+            ->whereBetween(
+                'rejected_at',
+                [$monthStart, $monthEnd]
+            )
             ->selectRaw('DATE(rejected_at) as day, COUNT(*) as total')
             ->groupBy('day')
             ->pluck('total', 'day');
 
-
-        $publishedRows = (clone $base)
+        $publishedRows = (clone $userBets)
             ->whereNotNull('published_at')
-            ->where('published_at', '>=', $startDate)
+            ->whereBetween(
+                'published_at',
+                [$monthStart, $monthEnd]
+            )
             ->selectRaw('DATE(published_at) as day, COUNT(*) as total')
             ->groupBy('day')
             ->pluck('total', 'day');
 
+        /*
+         * Для текущего месяца показываем дни только до сегодня.
+         * Для прошлых месяцев показываем весь месяц.
+         */
+        $lastDay = $selectedMonth->isSameMonth(now())
+            ? now()->day
+            : $selectedMonth->daysInMonth;
 
         $daily = [];
 
-
-        for ($i = 0; $i < $days; $i++) {
-
-            $date = $startDate
+        for ($day = 1; $day <= $lastDay; $day++) {
+            $date = $selectedMonth
                 ->copy()
-                ->addDays($i);
+                ->day($day);
 
             $key = $date->format('Y-m-d');
 
-
             $daily[] = [
-
                 'date' => $key,
 
-                'label' => $date->format(
-                    $days > 30
-                        ? 'd M'
-                        : 'd M'
-                ),
+                'label' => $date->format('d M'),
 
                 'created' => (int) (
                     $createdRows[$key] ?? 0
@@ -163,11 +250,8 @@ new class extends Component
                 'published' => (int) (
                     $publishedRows[$key] ?? 0
                 ),
-
             ];
-
         }
-
 
         /*
          * Нужен для вычисления высоты столбцов.
@@ -184,27 +268,26 @@ new class extends Component
                 ->max()
         );
 
-
         /*
         |--------------------------------------------------------------------------
         | STATUS DISTRIBUTION
         |--------------------------------------------------------------------------
+        |
+        | Распределение только среди бетов, созданных в выбранном месяце.
+        |
         */
 
         $statusStats = [];
 
         foreach (BetStatus::cases() as $status) {
-
-            $count = (clone $base)
+            $count = (clone $monthBets)
                 ->where(
                     'status',
                     $status->value
                 )
                 ->count();
 
-
             $statusStats[] = [
-
                 'value' => $status->value,
 
                 'label' => $status->label(),
@@ -215,19 +298,19 @@ new class extends Component
                     $total > 0
                         ? round(($count / $total) * 100, 1)
                         : 0,
-
             ];
-
         }
-
 
         /*
         |--------------------------------------------------------------------------
         | RECENT BETS
         |--------------------------------------------------------------------------
+        |
+        | Последние беты, созданные именно в выбранном месяце.
+        |
         */
 
-        $recentBets = (clone $base)
+        $recentBets = (clone $monthBets)
             ->with([
                 'translations',
                 'creator',
@@ -237,8 +320,8 @@ new class extends Component
             ->limit(7)
             ->get();
 
-
         return [
+            'selectedMonth' => $selectedMonth,
 
             'total' => $total,
 
@@ -253,6 +336,8 @@ new class extends Component
             'published' => $published,
 
             'resolved' => $resolved,
+
+            'delivered' => $delivered,
 
             'daily' => $daily,
 
@@ -270,9 +355,14 @@ new class extends Component
                 || $user->role === UserRole::CONTENT_SUPERVISOR
                 || $user->role === UserRole::ADMIN,
 
+            'canGoNext' =>
+                $selectedMonth
+                    ->copy()
+                    ->addMonth()
+                    ->startOfMonth()
+                    ->lte(now()->startOfMonth()),
         ];
     }
-
 
     public function startFinishedBetCheck(): void
     {
@@ -327,10 +417,10 @@ new class extends Component
                 : 'No finished bets require resolution.'
         );
     }
-
 };
 
 ?>
+
 <div>
     <style>
         .wr-card {
@@ -339,10 +429,21 @@ new class extends Component
             box-shadow: var(--wr-shadow);
         }
 
-        .wr-title { color: var(--wr-text); }
-        .wr-soft { color: var(--wr-text-soft); }
-        .wr-muted { color: var(--wr-muted); }
-        .wr-muted-soft { color: var(--wr-muted-soft); }
+        .wr-title {
+            color: var(--wr-text);
+        }
+
+        .wr-soft {
+            color: var(--wr-text-soft);
+        }
+
+        .wr-muted {
+            color: var(--wr-muted);
+        }
+
+        .wr-muted-soft {
+            color: var(--wr-muted-soft);
+        }
 
         .wr-input {
             border: 1px solid var(--wr-border);
@@ -422,6 +523,54 @@ new class extends Component
         </div>
     </div>
 
+    {{-- MONTH FILTER --}}
+    <section class="wr-card mb-5 rounded-2xl p-5">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
+            <div>
+                <div class="text-xs font-black uppercase tracking-[0.16em] text-lime-400">
+                    Reporting Period
+                </div>
+
+                <div class="wr-title mt-2 text-xl font-black">
+                    {{ $selectedMonth->format('F Y') }}
+                </div>
+
+                <div class="wr-muted mt-1 text-sm">
+                    Statistics for the selected month.
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+
+                <button
+                    type="button"
+                    wire:click="previousMonth"
+                    class="wr-card inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-black wr-title transition hover:border-lime-400/40 hover:text-lime-400"
+                >
+                    ← Previous
+                </button>
+
+                <input
+                    type="month"
+                    wire:model.live="month"
+                    max="{{ now()->format('Y-m') }}"
+                    class="wr-input h-11 rounded-xl px-4 text-sm font-bold"
+                >
+
+                <button
+                    type="button"
+                    wire:click="nextMonth"
+                    @disabled(!$canGoNext)
+                    class="wr-card inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-black wr-title transition hover:border-lime-400/40 hover:text-lime-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                    Next →
+                </button>
+
+            </div>
+        </div>
+    </section>
+
     {{-- MAIN STATS --}}
     <div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
@@ -430,22 +579,19 @@ new class extends Component
             class="wr-card group rounded-2xl p-5 transition hover:border-lime-400/30"
         >
             <div class="wr-muted-soft text-[10px] font-black uppercase tracking-[0.14em]">
-                Total Bets
+                Bets Created
             </div>
 
             <div class="wr-title mt-3 text-4xl font-black">
                 {{ number_format($total) }}
             </div>
 
-            <div class="mt-3 text-xs font-bold text-lime-500 opacity-0 transition group-hover:opacity-100">
-                View all →
+            <div class="wr-muted mt-3 text-xs font-semibold">
+                Created in {{ $selectedMonth->format('F Y') }}
             </div>
         </a>
 
-        <a
-            href="{{ route('content.bets.index', ['status' => 'pending_review']) }}"
-            class="wr-card rounded-2xl p-5 transition hover:border-amber-400/30"
-        >
+        <div class="wr-card rounded-2xl p-5">
             <div class="wr-muted-soft text-[10px] font-black uppercase tracking-[0.14em]">
                 Waiting Review
             </div>
@@ -455,9 +601,9 @@ new class extends Component
             </div>
 
             <div class="wr-muted mt-3 text-xs font-semibold">
-                Needs supervisor attention
+                Created this month and awaiting review
             </div>
-        </a>
+        </div>
 
         <div class="wr-card rounded-2xl p-5">
             <div class="wr-muted-soft text-[10px] font-black uppercase tracking-[0.14em]">
@@ -469,7 +615,7 @@ new class extends Component
             </div>
 
             <div class="wr-muted mt-3 text-xs">
-                Successfully reviewed
+                Created this month and approved
             </div>
         </div>
 
@@ -483,20 +629,25 @@ new class extends Component
             </div>
 
             <div class="wr-muted mt-3 text-xs">
-                Delivered content
+                Created this month and published
             </div>
         </div>
     </div>
 
     {{-- SECONDARY STATS --}}
-    <div class="mb-5 grid gap-4 md:grid-cols-3">
+    <div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
         <div class="wr-card rounded-2xl px-5 py-4">
             <div class="wr-muted-soft text-[10px] font-black uppercase tracking-[0.12em]">
                 Drafts
             </div>
 
             <div class="wr-title mt-2 text-2xl font-black">
-                {{ $draft }}
+                {{ number_format($draft) }}
+            </div>
+
+            <div class="wr-muted mt-2 text-xs">
+                Created this month
             </div>
         </div>
 
@@ -506,7 +657,11 @@ new class extends Component
             </div>
 
             <div class="mt-2 text-2xl font-black text-red-400">
-                {{ $rejected }}
+                {{ number_format($rejected) }}
+            </div>
+
+            <div class="wr-muted mt-2 text-xs">
+                Created this month
             </div>
         </div>
 
@@ -516,41 +671,51 @@ new class extends Component
             </div>
 
             <div class="wr-title mt-2 text-2xl font-black">
-                {{ $resolved }}
+                {{ number_format($resolved) }}
+            </div>
+
+            <div class="wr-muted mt-2 text-xs">
+                Created this month
             </div>
         </div>
+
+        <div class="wr-card rounded-2xl px-5 py-4">
+            <div class="wr-muted-soft text-[10px] font-black uppercase tracking-[0.12em]">
+                Delivered to Merchants
+            </div>
+
+            <div class="mt-2 text-2xl font-black text-violet-400">
+                {{ number_format($delivered) }}
+            </div>
+
+            <div class="wr-muted mt-2 text-xs">
+                Merchant deliveries this month
+            </div>
+        </div>
+
     </div>
 
     {{-- DAILY ACTIVITY --}}
     <section class="wr-card mb-5 rounded-2xl p-6">
-        <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-                <div class="text-xs font-black uppercase tracking-[0.16em] text-lime-400">
-                    Activity
-                </div>
 
-                <h2 class="wr-title mt-2 text-xl font-black">
-                    Bets by Day
-                </h2>
-
-                <p class="wr-muted mt-1 text-sm">
-                    Creation, approval, rejection and publication activity.
-                </p>
+        <div class="mb-6">
+            <div class="text-xs font-black uppercase tracking-[0.16em] text-lime-400">
+                Activity
             </div>
 
-            <select
-                wire:model.live="period"
-                class="wr-input rounded-xl px-4 py-2.5 text-sm font-bold"
-            >
-                <option value="7">Last 7 days</option>
-                <option value="14">Last 14 days</option>
-                <option value="30">Last 30 days</option>
-                <option value="90">Last 90 days</option>
-            </select>
+            <h2 class="wr-title mt-2 text-xl font-black">
+                Bets by Day
+            </h2>
+
+            <p class="wr-muted mt-1 text-sm">
+                Creation, approval, rejection and publication activity during
+                {{ $selectedMonth->format('F Y') }}.
+            </p>
         </div>
 
         {{-- LEGEND --}}
         <div class="mb-5 flex flex-wrap gap-5">
+
             <div class="flex items-center gap-2">
                 <div class="h-2.5 w-2.5 rounded-full bg-slate-400"></div>
                 <span class="wr-muted text-xs font-bold">Created</span>
@@ -570,18 +735,22 @@ new class extends Component
                 <div class="h-2.5 w-2.5 rounded-full bg-sky-400"></div>
                 <span class="wr-muted text-xs font-bold">Published</span>
             </div>
+
         </div>
 
         <div class="overflow-x-auto">
+
             <div
                 class="flex h-72 min-w-[900px] items-end gap-2 border-b"
                 style="border-color: var(--wr-border);"
             >
                 @foreach($daily as $day)
+
                     <div
                         class="group flex h-full min-w-[22px] flex-1 items-end justify-center gap-[2px]"
                         title="{{ $day['label'] }} — Created: {{ $day['created'] }}, Approved: {{ $day['approved'] }}, Rejected: {{ $day['rejected'] }}, Published: {{ $day['published'] }}"
                     >
+
                         <div
                             class="w-1/4 min-w-[3px] rounded-t bg-slate-400/70 transition group-hover:bg-slate-300"
                             style="height: {{ max(2, ($day['created'] / $maxDaily) * 100) }}%;"
@@ -601,19 +770,26 @@ new class extends Component
                             class="w-1/4 min-w-[3px] rounded-t bg-sky-400/80"
                             style="height: {{ max(2, ($day['published'] / $maxDaily) * 100) }}%;"
                         ></div>
+
                     </div>
+
                 @endforeach
             </div>
 
             <div class="mt-3 flex min-w-[900px] gap-2">
+
                 @foreach($daily as $index => $day)
+
                     <div class="wr-muted-soft min-w-[22px] flex-1 text-center text-[9px]">
                         @if(count($daily) <= 14 || $index % 5 === 0)
                             {{ $day['label'] }}
                         @endif
                     </div>
+
                 @endforeach
+
             </div>
+
         </div>
     </section>
 
@@ -622,6 +798,7 @@ new class extends Component
 
         {{-- STATUS DISTRIBUTION --}}
         <section class="wr-card rounded-2xl p-6">
+
             <div class="text-xs font-black uppercase tracking-[0.16em] text-lime-400">
                 Status
             </div>
@@ -630,10 +807,18 @@ new class extends Component
                 Bet Distribution
             </h2>
 
+            <p class="wr-muted mt-1 text-sm">
+                Bets created in {{ $selectedMonth->format('F Y') }}.
+            </p>
+
             <div class="mt-6 space-y-5">
+
                 @foreach($statusStats as $row)
+
                     <div>
+
                         <div class="mb-2 flex items-center justify-between gap-4">
+
                             <div class="wr-soft text-sm font-bold">
                                 {{ $row['label'] }}
                             </div>
@@ -641,6 +826,7 @@ new class extends Component
                             <div class="wr-title text-sm font-black">
                                 {{ $row['count'] }}
                             </div>
+
                         </div>
 
                         <div class="wr-progress-track h-2 overflow-hidden rounded-full">
@@ -653,14 +839,19 @@ new class extends Component
                         <div class="wr-muted-soft mt-1 text-right text-[10px]">
                             {{ $row['percentage'] }}%
                         </div>
+
                     </div>
+
                 @endforeach
+
             </div>
         </section>
 
         {{-- RECENT --}}
         <section class="wr-card rounded-2xl p-6">
+
             <div class="flex items-start justify-between gap-5">
+
                 <div>
                     <div class="text-xs font-black uppercase tracking-[0.16em] text-lime-400">
                         Recent
@@ -669,6 +860,10 @@ new class extends Component
                     <h2 class="wr-title mt-2 text-xl font-black">
                         Latest Bets
                     </h2>
+
+                    <p class="wr-muted mt-1 text-sm">
+                        Created in {{ $selectedMonth->format('F Y') }}.
+                    </p>
                 </div>
 
                 <a
@@ -677,10 +872,13 @@ new class extends Component
                 >
                     View all →
                 </a>
+
             </div>
 
             <div class="mt-5">
+
                 @forelse($recentBets as $bet)
+
                     @php
                         $translation =
                             $bet->translations->firstWhere('locale', 'en')
@@ -688,8 +886,11 @@ new class extends Component
                     @endphp
 
                     <div class="wr-recent-row py-4 first:pt-0">
+
                         <div class="flex items-start justify-between gap-5">
+
                             <div class="min-w-0">
+
                                 <div class="wr-title truncate font-bold">
                                     {{ $translation?->title ?? 'Untitled Bet' }}
                                 </div>
@@ -699,19 +900,26 @@ new class extends Component
                                     <span>{{ $bet->creator?->email }}</span>
                                     <span>{{ $bet->created_at->format('d.m.Y H:i') }}</span>
                                 </div>
+
                             </div>
 
                             <span class="wr-status-pill">
                                 {{ $bet->status->label() }}
                             </span>
+
                         </div>
                     </div>
+
                 @empty
+
                     <div class="wr-muted-soft py-12 text-center text-sm">
-                        No bets yet.
+                        No bets created during this month.
                     </div>
+
                 @endforelse
+
             </div>
         </section>
+
     </div>
 </div>

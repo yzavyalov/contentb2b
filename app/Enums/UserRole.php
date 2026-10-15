@@ -15,6 +15,8 @@ enum UserRole: string
 
     case MERCHANT = 'merchant';
 
+    case AGENT = 'agent';
+
     public function label(): string
     {
         return match ($this) {
@@ -24,6 +26,7 @@ enum UserRole: string
             self::CONTENT_SUPERVISOR => 'Content Supervisor',
             self::FINANCIAL_MANAGER => 'Financial Manager',
             self::MERCHANT => 'Merchant',
+            self::AGENT => 'Agent',
         };
     }
 }

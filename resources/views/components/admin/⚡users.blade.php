@@ -22,6 +22,7 @@ new class extends Component
 
     public string $newName = '';
     public string $newEmail = '';
+    public string $newContact = '';
     public string $newRole = 'user';
 
     public ?string $generatedPassword = null;
@@ -119,6 +120,7 @@ new class extends Component
         $this->reset([
             'newName',
             'newEmail',
+            'newContact',
             'generatedPassword',
             'createdUserId',
 
@@ -142,6 +144,7 @@ new class extends Component
         $this->reset([
             'newName',
             'newEmail',
+            'newContact',
             'generatedPassword',
             'createdUserId',
         ]);
@@ -174,6 +177,12 @@ new class extends Component
                 'unique:users,email',
             ],
 
+            'newContact' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
+
             'newRole' => [
                 'required',
                 'string',
@@ -199,6 +208,9 @@ new class extends Component
         $user = User::create([
             'name' => trim($this->newName),
             'email' => strtolower(trim($this->newEmail)),
+            'contact' => trim($this->newContact) !== ''
+                ? trim($this->newContact)
+                : null,
             'password' => Hash::make($plainPassword),
             'role' => UserRole::from($this->newRole),
         ]);
@@ -603,6 +615,45 @@ new class extends Component
 
                         </div>
 
+                        <!-- CONTACT -->
+
+                        <div class="lg:col-span-3">
+
+                            <label
+                                class="mb-2 block text-sm font-bold wr-text"
+                            >
+                                Contact
+                                <span class="ml-1 text-xs font-normal wr-muted">
+                                    (optional)
+                                </span>
+                            </label>
+
+                            <textarea
+                                wire:model="newContact"
+                                rows="3"
+                                placeholder="Telegram, WhatsApp, phone or other contact details..."
+                                class="
+                                        w-full
+                                        resize-y
+                                        rounded-xl
+                                        border border-[var(--wr-border)]
+                                        bg-[var(--wr-input)]
+                                        px-4 py-3.5
+                                        wr-text
+                                        outline-none
+                                        placeholder:wr-muted
+                                        focus:border-lime-400/50
+                                    "
+                            ></textarea>
+
+                            @error('newContact')
+                            <div class="mt-2 text-xs font-bold text-red-400">
+                                {{ $message }}
+                            </div>
+                            @enderror
+
+                        </div>
+
                     </div>
 
 
@@ -788,6 +839,10 @@ new class extends Component
                     </th>
 
                     <th class="px-6 py-4 text-left text-xs font-black uppercase tracking-[0.14em] wr-muted">
+                        Contact
+                    </th>
+
+                    <th class="px-6 py-4 text-left text-xs font-black uppercase tracking-[0.14em] wr-muted">
                         Current Role
                     </th>
 
@@ -845,9 +900,26 @@ new class extends Component
 
                         <td class="px-6 py-5">
 
-                            <div class="font-semibold wr-text">
+                            <a
+                                href="{{ route('admin.users.edit', $user->id) }}"
+                                class="font-semibold text-lime-500 transition hover:text-lime-400 hover:underline"
+                            >
                                 {{ $user->email }}
-                            </div>
+                            </a>
+
+                        </td>
+
+                        <!-- CONTACT -->
+
+                        <td class="px-6 py-5">
+
+                            @if($user->contact)
+                                <div class="max-w-[280px] whitespace-pre-line break-words text-sm wr-text">
+                                    {{ $user->contact }}
+                                </div>
+                            @else
+                                <span class="wr-muted">—</span>
+                            @endif
 
                         </td>
 
@@ -1068,7 +1140,7 @@ new class extends Component
                     <tr>
 
                         <td
-                            colspan="6"
+                            colspan="7"
                             class="px-6 py-16 text-center"
                         >
 

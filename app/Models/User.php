@@ -23,6 +23,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'contact',
         'password',
         'role',
     ];
@@ -81,6 +82,11 @@ class User extends Authenticatable
         return $this->role === UserRole::MERCHANT;
     }
 
+    public function isAgent(): bool
+    {
+        return $this->role === UserRole::AGENT;
+    }
+
     public function hasRole(UserRole ...$roles): bool
     {
         return in_array($this->role, $roles, true);
@@ -89,6 +95,14 @@ class User extends Authenticatable
     public function merchants(): HasMany
     {
         return $this->hasMany(Merchant::class);
+    }
+
+    public function agentMerchants(): HasMany
+    {
+        return $this->hasMany(
+            Merchant::class,
+            'agent_id'
+        );
     }
 
     public function createdBets(): HasMany

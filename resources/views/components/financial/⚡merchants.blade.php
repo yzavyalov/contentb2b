@@ -4,6 +4,8 @@ use App\Enums\MerchantSubscriptionStatus;
 use App\Enums\MerchantSubscriptionChangeReason;
 use App\Models\BillingPlan;
 use App\Models\Merchant;
+use App\Models\User;
+use App\Enums\UserRole;
 use App\Models\MerchantSubscription;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -362,11 +364,75 @@ new class extends Component
         $this->resetValidation();
     }
 
+
+    public function assignAgent(int $merchantId, $agentId): void
+    {
+        $merchant = Merchant::findOrFail($merchantId);
+
+        /*
+        |--------------------------------------------------------------------------
+        | UNASSIGN AGENT
+        |--------------------------------------------------------------------------
+        */
+
+        if ($agentId === null || $agentId === '') {
+            $merchant->update([
+                'agent_id' => null,
+            ]);
+
+            session()->flash(
+                'status',
+                'Agent unassigned successfully.'
+            );
+
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | VALIDATE AGENT
+        |--------------------------------------------------------------------------
+        |
+        | Only users with the AGENT role may be assigned to a merchant.
+        |
+        */
+
+        $agent = User::query()
+            ->whereKey((int) $agentId)
+            ->where('role', UserRole::AGENT->value)
+            ->first();
+
+        if (! $agent) {
+            session()->flash(
+                'error',
+                'Selected user is not a valid agent.'
+            );
+
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ASSIGN AGENT
+        |--------------------------------------------------------------------------
+        */
+
+        $merchant->update([
+            'agent_id' => $agent->id,
+        ]);
+
+        session()->flash(
+            'status',
+            'Agent assigned successfully.'
+        );
+    }
+
     public function with(): array
     {
         $merchants = Merchant::query()
             ->with([
                 'user',
+                'agent',
                 'wallets',
                 'billingPeriods' => fn ($query) => $query->latest('period_start'),
                 'subscriptions' => fn ($query) => $query
@@ -409,6 +475,12 @@ new class extends Component
 
         return [
             'merchants' => $merchants,
+
+            'agents' => User::query()
+                ->where('role', UserRole::AGENT->value)
+                ->orderBy('name')
+                ->orderBy('email')
+                ->get(['id', 'name', 'email']),
 
             'billingPlans' => BillingPlan::query()
                 ->orderByDesc('is_active')
@@ -548,7 +620,7 @@ new class extends Component
 
                             @foreach($billingPlans as $plan)
                                 <option value="{{ $plan->id }}">
-                                    {{ $plan->name }}{{ $plan->is_active ? '' : ' вЂ” inactive' }}
+                                    {{ $plan->name }}{{ $plan->is_active ? '' : ' - inactive' }}
                                 </option>
                             @endforeach
                         </select>
@@ -825,6 +897,7 @@ new class extends Component
                 <tr class="border-b" style="border-color: var(--wr-border);">
                     <th class="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider wr-muted">Merchant</th>
                     <th class="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider wr-muted">Owner</th>
+                    <th class="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider wr-muted">Agent</th>
                     <th class="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider wr-muted">Plan</th>
                     <th class="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider wr-muted">Subscription</th>
                     <th class="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider wr-muted">Automation</th>
@@ -915,12 +988,39 @@ new class extends Component
 
                         <td class="px-5 py-5">
                             <div class="text-sm font-semibold wr-text-soft">
-                                {{ $merchant->user?->name ?: 'вЂ”' }}
+                                {{ $merchant->user?->name ?: '—' }}
                             </div>
 
                             <div class="mt-1 text-xs wr-muted">
                                 {{ $merchant->user?->email ?: 'No user' }}
                             </div>
+                        </td>
+
+                        <td class="px-5 py-5">
+                            <select
+                                wire:change="assignAgent({{ $merchant->id }}, $event.target.value)"
+                                class="min-w-[220px] rounded-xl border px-3 py-2.5 text-sm outline-none wr-text"
+                                style="background: var(--wr-input); border-color: var(--wr-border);"
+                            >
+                                <option value="" @selected($merchant->agent_id === null)>
+                                    No agent
+                                </option>
+
+                                @foreach($agents as $agent)
+                                    <option
+                                        value="{{ $agent->id }}"
+                                        @selected((int) $merchant->agent_id === (int) $agent->id)
+                                    >
+                                        {{ $agent->name }} — {{ $agent->email }}
+                                    </option>
+                                @endforeach
+                            </select>
+
+                            @if($merchant->agent)
+                                <div class="mt-2 text-xs wr-muted">
+                                    {{ $merchant->agent->email }}
+                                </div>
+                            @endif
                         </td>
 
                         <td class="px-5 py-5">
@@ -999,7 +1099,7 @@ new class extends Component
                                 @endif
 
                             @else
-                                <span class="text-sm wr-muted">вЂ”</span>
+                                <span class="text-sm wr-muted">—</span>
                             @endif
                         </td>
 
@@ -1039,7 +1139,7 @@ new class extends Component
                                     </div>
 
                                     <div class="mt-3 max-w-[250px] text-xs font-semibold leading-5 text-amber-400">
-                                        в†» Will restore automatically when USD balance reaches
+                                        → Will restore automatically when USD balance reaches
                                         ${{ number_format((float) $restoreMonthlyFee, 2) }}.
                                     </div>
                                 @else
@@ -1075,7 +1175,7 @@ new class extends Component
                                         <div class="mt-2 flex justify-between gap-4 text-xs">
                                             <span class="wr-muted">Period ends</span>
                                             <span class="font-bold wr-text">
-                                                {{ $currentPeriod->period_end?->format('Y-m-d') ?: 'вЂ”' }}
+                                                {{ $currentPeriod->period_end?->format('Y-m-d') ?: '—' }}
                                             </span>
                                         </div>
                                     </div>
@@ -1125,11 +1225,11 @@ new class extends Component
                                 </div>
                             @elseif($subscription)
                                 <div class="text-sm wr-text-soft">
-                                    {{ $subscription->starts_at?->format('Y-m-d') ?: 'вЂ”' }}
+                                    {{ $subscription->starts_at?->format('Y-m-d') ?: '—' }}
                                 </div>
                                 <div class="mt-1 text-xs wr-muted">Subscription start</div>
                             @else
-                                <span class="wr-muted">вЂ”</span>
+                                <span class="wr-muted">—</span>
                             @endif
                         </td>
 
@@ -1194,7 +1294,7 @@ new class extends Component
 
                 @empty
                     <tr>
-                        <td colspan="10" class="px-6 py-16 text-center">
+                        <td colspan="11" class="px-6 py-16 text-center">
                             <div class="text-base font-semibold wr-text">
                                 No merchants found
                             </div>

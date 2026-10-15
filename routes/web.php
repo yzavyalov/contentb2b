@@ -86,6 +86,12 @@ Route::middleware(['auth'])->group(function () {
             redirect()->route('merchant.dashboard'),
 
             /*
+             * Agent.
+             */
+            UserRole::AGENT =>
+            redirect()->route('agent.dashboard'),
+
+            /*
              * Unknown / invalid role.
              */
             default =>
@@ -121,6 +127,16 @@ Route::middleware(['auth'])->group(function () {
              */
             Route::view('/users', 'admin.users')
                 ->name('users.index');
+
+            Route::get(
+                '/users/{user}/edit',
+                function (\App\Models\User $user) {
+
+                    return view('admin.users.edit', [
+                        'userId' => $user->id,
+                    ]);
+                }
+            )->name('users.edit');
 
             /*
              * User Merchants
@@ -232,6 +248,33 @@ Route::middleware(['auth'])->group(function () {
              */
             Route::view('/billing-plans', 'financial.billing-plans')
                 ->name('billing-plans');
+
+            Route::view('/agents', 'financial.agents')
+                ->name('agents');
+        });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | AGENT
+    |--------------------------------------------------------------------------
+    |
+    | Agent workspace.
+    |
+    | Agents can see statistics only for merchants assigned to them
+    | through merchants.agent_id.
+    |
+    */
+
+    Route::middleware([
+        'role:' . UserRole::AGENT->value,
+    ])
+        ->prefix('agent')
+        ->name('agent.')
+        ->group(function () {
+
+            Route::view('/dashboard', 'agent.dashboard')
+                ->name('dashboard');
         });
 
 
