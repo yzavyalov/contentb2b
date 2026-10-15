@@ -2,7 +2,17 @@
 
 @section('title', 'wrangle.win — Content Built for Prediction Markets')
 
-@section('description', 'wrangle.win is a specialist content studio serving gambling, sportsbook, casino and gaming businesses with prediction market creation, localisation, monitoring and verified resolution delivered through API.')
+@section('meta_description', 'Prediction market content from creation to resolution. Structured markets, 30+ languages, continuous event monitoring and verified outcomes — delivered through API.')
+
+@section('og_title', 'wrangle.win — Content Built for Prediction Markets')
+
+@section('og_description', 'Prediction market content from creation to resolution. Structured markets, 30+ languages, continuous event monitoring and verified outcomes — delivered through API.')
+
+@section('og_url', url('/'))
+
+@section('og_image', asset('images/wrangle-social-preview.png'))
+
+@section('og_image_alt', 'wrangle.win — Content is complicated. We wrangle it.')
 
 @section('content')
 

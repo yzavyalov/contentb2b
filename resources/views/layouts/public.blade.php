@@ -18,6 +18,30 @@
         >
     @endif
 
+    {{-- Social sharing / Open Graph --}}
+    <meta property="og:type" content="@yield('og_type', 'website')">
+    <meta property="og:site_name" content="wrangle.win">
+    <meta property="og:title" content="@yield('og_title', 'wrangle.win — Content Built for Prediction Markets')">
+    <meta property="og:description" content="@yield('og_description', 'Prediction market content from creation to resolution. Structured markets, 30+ languages, continuous event monitoring and verified outcomes — delivered through API.')">
+    <meta property="og:url" content="@yield('og_url', url()->current())">
+
+    @hasSection('og_image')
+        <meta property="og:image" content="@yield('og_image')">
+        <meta property="og:image:secure_url" content="@yield('og_image')">
+        <meta property="og:image:type" content="image/png">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        <meta property="og:image:alt" content="@yield('og_image_alt', 'wrangle.win — Content Built for Prediction Markets')">
+    @endif
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="@yield('og_title', 'wrangle.win — Content Built for Prediction Markets')">
+    <meta name="twitter:description" content="@yield('og_description', 'Prediction market content from creation to resolution. Structured markets, 30+ languages, continuous event monitoring and verified outcomes — delivered through API.')">
+
+    @hasSection('og_image')
+        <meta name="twitter:image" content="@yield('og_image')">
+    @endif
+
     @vite([
         'resources/css/app.css',
         'resources/js/app.js'
