@@ -43,4 +43,9 @@ return [
         ),
     ],
 
+    'content_import' => [
+        'secret' => env('CONTENT_IMPORT_SECRET'),
+        'user_id' => env('CONTENT_IMPORT_USER_ID'),
+    ],
+
 ];
