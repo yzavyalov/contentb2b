@@ -98,7 +98,7 @@ new class extends Component
 
 
         /*
-         * Content Manager видит только свои Bet.
+         * Content Manager can only see their own bets.
          */
         if ($currentUser->role === UserRole::CONTENT_MANAGER) {
             $query->where(
@@ -143,7 +143,7 @@ new class extends Component
 
 
                 /*
-                 * Ответы
+                 * Answers
                  */
                 $query->orWhereHas(
                     'answers.translations',
@@ -160,7 +160,7 @@ new class extends Component
 
 
                 /*
-                 * Категории
+                 * Categories
                  */
                 $query->orWhereHas(
                     'categories',
@@ -183,7 +183,7 @@ new class extends Component
 
 
                 /*
-                 * Страны
+                 * Countries
                  */
                 $query->orWhereHas(
                     'countries',
@@ -206,8 +206,8 @@ new class extends Component
 
 
                 /*
-                 * Группы стран:
-                 * EU, Europe, LATAM и т.д.
+                 * Country groups:
+                 * EU, Europe, LATAM, etc.
                  */
                 $query->orWhereHas(
                     'countryGroups',
@@ -230,7 +230,7 @@ new class extends Component
 
 
                 /*
-                 * Кто создал
+                 * Creator
                  */
                 $query->orWhereHas(
                     'creator',
@@ -327,7 +327,7 @@ new class extends Component
 
 
         /*
-         * Для фильтров пользователей.
+         * For user filters.
          */
         $creators = User::query()
             ->whereHas('createdBets')
@@ -912,21 +912,21 @@ new class extends Component
                             @elseif($bet->status === \App\Enums\BetStatus::RESOLVING)
                                 <span class="wr-status wr-status-resolving">Queued</span>
                             @else
-                                <span class="text-xs wr-bets-muted-soft">—</span>
+                                <span class="text-xs wr-bets-muted-soft">-</span>
                             @endif
                         </td>
 
                         {{-- CREATOR --}}
                         <td class="px-4 py-4 align-top">
                             <div class="truncate text-[13px] font-semibold wr-bets-title" title="{{ $bet->creator?->email ?? '' }}">
-                                {{ $bet->creator?->email ?? '—' }}
+                                {{ $bet->creator?->email ?? '-' }}
                             </div>
                         </td>
 
                         {{-- SUPERVISOR --}}
                         <td class="px-4 py-4 align-top">
                             <div class="truncate text-[13px] wr-bets-muted" title="{{ $bet->supervisor?->email ?? '' }}">
-                                {{ $bet->supervisor?->email ?? '—' }}
+                                {{ $bet->supervisor?->email ?? '-' }}
                             </div>
                         </td>
 
@@ -971,7 +971,7 @@ new class extends Component
                         {{-- FINISH --}}
                         <td class="px-4 py-4 align-top">
                             <div class="text-[13px] font-semibold wr-bets-title">
-                                {{ $bet->finish_at?->format('d.m.Y') ?? '—' }}
+                                {{ $bet->finish_at?->format('d.m.Y') ?? '-' }}
                             </div>
 
                             <div class="mt-0.5 text-[11px] wr-bets-muted-soft">
@@ -1023,7 +1023,7 @@ new class extends Component
             <div class="text-sm font-semibold text-[var(--wr-muted)]">
                 Showing
                 <span class="font-black text-[var(--wr-text)]">{{ $bets->firstItem() }}</span>
-                –
+                -
                 <span class="font-black text-[var(--wr-text)]">{{ $bets->lastItem() }}</span>
                 of
                 <span class="font-black text-[var(--wr-text)]">{{ $bets->total() }}</span>
@@ -1035,7 +1035,7 @@ new class extends Component
                 {{-- Previous --}}
                 @if($bets->onFirstPage())
                     <span class="cursor-not-allowed rounded-xl border border-[var(--wr-border)] px-4 py-2 text-sm font-bold opacity-40">
-                        ← Previous
+                        &larr; Previous
                     </span>
                 @else
                     <button
@@ -1044,7 +1044,7 @@ new class extends Component
                         wire:loading.attr="disabled"
                         class="rounded-xl border border-[var(--wr-border)] px-4 py-2 text-sm font-bold text-[var(--wr-text)] transition hover:border-lime-400/40 hover:text-lime-400"
                     >
-                        ← Previous
+                        &larr; Previous
                     </button>
                 @endif
 
@@ -1074,7 +1074,7 @@ new class extends Component
                     @if($index > 0 && $page - $pages[$index - 1] > 1)
 
                         <span class="flex h-10 min-w-6 items-center justify-center px-1 text-sm font-bold text-[var(--wr-muted)]">
-            …
+            &hellip;
         </span>
 
                     @endif
@@ -1109,11 +1109,11 @@ new class extends Component
                         wire:loading.attr="disabled"
                         class="rounded-xl border border-[var(--wr-border)] px-4 py-2 text-sm font-bold text-[var(--wr-text)] transition hover:border-lime-400/40 hover:text-lime-400"
                     >
-                        Next →
+                        Next &rarr;
                     </button>
                 @else
                     <span class="cursor-not-allowed rounded-xl border border-[var(--wr-border)] px-4 py-2 text-sm font-bold opacity-40">
-                        Next →
+                        Next &rarr;
                     </span>
                 @endif
 

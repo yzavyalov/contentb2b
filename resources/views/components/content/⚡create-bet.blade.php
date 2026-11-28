@@ -244,7 +244,7 @@ new class extends Component
         | ADMIN / SUPERVISOR
         |--------------------------------------------------------------------------
         |
-        | РњРѕРіСѓС‚ СЂРµРґР°РєС‚РёСЂРѕРІР°С‚СЊ Р»СЋР±РѕР№ Bet.
+        | Can edit any Bet.
         |
         */
 
@@ -637,13 +637,13 @@ new class extends Component
     public function saveDraft()
     {
         /*
-         * Save Draft СЂР°Р·СЂРµС€С‘РЅ:
+         * Save Draft is allowed:
          *
-         * - РїСЂРё СЃРѕР·РґР°РЅРёРё РЅРѕРІРѕРіРѕ market;
-         * - РїСЂРё СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРё market СЃРѕ СЃС‚Р°С‚СѓСЃРѕРј DRAFT;
-         * - РїСЂРё СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРё REJECTED market.
+         * - when creating a new market;
+         * - when editing a market with DRAFT status;
+         * - when editing a REJECTED market.
          *
-         * РќРµР»СЊР·СЏ С‡РµСЂРµР· РѕР±С‹С‡РЅСѓСЋ С„РѕСЂРјСѓ РѕС‚РєР°С‚С‹РІР°С‚СЊ:
+         * The standard form must not revert these statuses:
          *
          * PENDING_REVIEW
          * APPROVED
@@ -681,13 +681,13 @@ new class extends Component
     public function submitForReview()
     {
         /*
-         * Submit for Review СЂР°Р·СЂРµС€С‘РЅ:
+         * Submit for Review is allowed:
          *
-         * - РґР»СЏ РЅРѕРІРѕРіРѕ market;
+         * - for a new market;
          * - DRAFT;
-         * - REJECTED РїРѕСЃР»Рµ РёСЃРїСЂР°РІР»РµРЅРёР№.
+         * - REJECTED after corrections.
          *
-         * РќРµР»СЊР·СЏ С‚Р°РєРёРј СЃРїРѕСЃРѕР±РѕРј РѕС‚РєР°С‚С‹РІР°С‚СЊ
+         * This action must not revert
          * APPROVED / PUBLISHED / RESOLVED.
          */
 
@@ -742,8 +742,8 @@ new class extends Component
             : BetStatus::tryFrom((string) $bet->status);
 
         /*
-         * РћР±С‹С‡РЅРѕРµ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ Р±РµР· РёР·РјРµРЅРµРЅРёСЏ workflow
-         * СЂР°Р·СЂРµС€Р°РµРј С‚РѕР»СЊРєРѕ РґР»СЏ APPROVED Рё PUBLISHED.
+         * Standard editing without changing the workflow
+         * is allowed only for APPROVED and PUBLISHED.
          */
         abort_unless(
             in_array(
@@ -1171,11 +1171,11 @@ new class extends Component
                     : null;
 
                 /*
-                 * winning_answer_id РѕС‡РёС‰Р°РµРј С‚РѕР»СЊРєРѕ РІ РѕР±С‹С‡РЅРѕРј
+                 * Clear winning_answer_id only in the standard
                  * draft/review workflow.
                  *
-                 * Save Changes РЅРµ РґРѕР»Р¶РµРЅ РІРјРµС€РёРІР°С‚СЊСЃСЏ
-                 * РІ settlement state.
+                 * Save Changes must not interfere
+                 * with the settlement state.
                  */
                 if (! $preserveWorkflow) {
                     $bet->winning_answer_id = null;
@@ -1203,8 +1203,8 @@ new class extends Component
                     $bet->rejected_at = null;
 
                     /*
-                     * Manager РѕС‚РїСЂР°РІР»СЏРµС‚ Bet РЅР° review.
-                     * Supervisor РµС‰С‘ РЅРµ РЅР°Р·РЅР°С‡РµРЅ.
+                     * Manager submits the Bet for review.
+                     * A supervisor has not yet been assigned.
                      */
                     if ($user->isContentManager()) {
                         $bet->supervisor_user_id = null;
@@ -1997,7 +1997,7 @@ new class extends Component
 
         <a href="{{ route('content.bets.index') }}"
            class="inline-flex items-center justify-center rounded-xl border border-[var(--wr-border)] bg-[var(--wr-panel)] px-5 py-3 text-sm font-bold text-[var(--wr-text-soft)] transition hover:border-lime-400/40 hover:text-lime-500">
-            в†ђ Back to Bets
+            &larr; Back to Bets
         </a>
     </div>
 
@@ -2148,7 +2148,7 @@ new class extends Component
                                             @if($check->url && $check->url !== 'google-search')
                                                 <a href="{{ $check->url }}" target="_blank" rel="noopener noreferrer"
                                                    class="mt-2 block break-all text-sm font-semibold text-lime-400 hover:underline">
-                                                    {{ $check->url }} в†—
+                                                    {{ $check->url }} &#8599;
                                                 </a>
                                             @endif
                                         </div>
@@ -2157,7 +2157,7 @@ new class extends Component
                                             <div class="min-w-[115px] rounded-xl border border-[var(--wr-border)] bg-[var(--wr-panel)] px-3 py-2.5">
                                                 <div class="text-[9px] font-black uppercase tracking-wider text-[var(--wr-muted)]">AI answer</div>
                                                 <div class="mt-1 text-sm font-black {{ $check->suggestedAnswer ? 'text-[var(--wr-text)]' : 'text-[var(--wr-muted)]' }}">
-                                                    {{ $check->suggestedAnswer ? $answerTitle($check->suggestedAnswer) : 'вЂ”' }}
+                                                    {{ $check->suggestedAnswer ? $answerTitle($check->suggestedAnswer) : '-' }}
                                                 </div>
                                             </div>
                                             <div class="min-w-[100px] rounded-xl border border-[var(--wr-border)] bg-[var(--wr-panel)] px-3 py-2.5">
@@ -2255,7 +2255,7 @@ new class extends Component
                                     @disabled(! $finalAnswerId)
                                     class="inline-flex min-w-[230px] items-center justify-center rounded-xl bg-lime-400 px-6 py-3 text-sm font-black text-[#06111f] transition hover:bg-lime-300 disabled:cursor-not-allowed disabled:opacity-50">
                                 <span wire:loading.remove wire:target="openResolutionConfirmation">
-                                    вњ“ Confirm & Resolve Market
+                                    &#10003; Confirm & Resolve Market
                                 </span>
                                 <span wire:loading wire:target="openResolutionConfirmation">
                                     Checking...
@@ -2365,7 +2365,7 @@ new class extends Component
                                     class="inline-flex min-w-[250px] items-center justify-center rounded-xl bg-red-500 px-6 py-3 text-sm font-black text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50">
 
                                 <span wire:loading.remove wire:target="confirmResolution">
-                                    Yes, Resolve with вЂњ{{ $selectedFinalAnswerTitle }}вЂќ
+                                    Yes, Resolve with &ldquo;{{ $selectedFinalAnswerTitle }}&rdquo;
                                 </span>
 
                                 <span wire:loading wire:target="confirmResolution">
@@ -2508,7 +2508,7 @@ new class extends Component
                         text-[#06111f]
                     "
                     >
-                        вњ“ Approve
+                        &#10003; Approve
                     </button>
 
 
@@ -2628,7 +2628,7 @@ new class extends Component
                                     </svg>
                                 </div>
                                 <div class="mt-4 text-sm font-black text-[var(--wr-text)]">Upload market image</div>
-                                <div class="mt-1 text-xs text-[var(--wr-muted)]">PNG, JPG or WebP В· maximum 5 MB</div>
+                                <div class="mt-1 text-xs text-[var(--wr-muted)]">PNG, JPG or WebP &middot; maximum 5 MB</div>
                                 <div class="mt-4 inline-flex rounded-xl border border-lime-400/20 bg-lime-400/10 px-4 py-2 text-xs font-black text-lime-400">Choose file</div>
                             </div>
                         @endif
@@ -2690,7 +2690,7 @@ new class extends Component
                     </select>
                     <button type="button" wire:click="addLanguage" wire:loading.attr="disabled" wire:target="addLanguage,translateLanguage"
                             class="inline-flex min-w-[180px] items-center justify-center rounded-xl bg-lime-400 px-4 py-3 text-sm font-black text-[#06111f] transition hover:bg-lime-300 disabled:cursor-not-allowed disabled:opacity-50">
-                        <span wire:loading.remove wire:target="addLanguage">вњ¦ Add & AI Translate</span>
+                        <span wire:loading.remove wire:target="addLanguage">&#10022; Add & AI Translate</span>
                         <span wire:loading wire:target="addLanguage">Translating...</span>
                     </button>
                     <button type="button" wire:click="addLanguageWithoutTranslation"
@@ -2703,7 +2703,7 @@ new class extends Component
             @error('newLocale') <div class="-mt-4 mb-5 text-xs font-bold text-red-400">{{ $message }}</div> @enderror
 
             @if($translationNotice)
-                <div class="mb-5 rounded-xl border border-lime-400/20 bg-lime-400/10 px-4 py-3 text-sm font-semibold text-lime-300">вњ¦ {{ $translationNotice }}</div>
+                <div class="mb-5 rounded-xl border border-lime-400/20 bg-lime-400/10 px-4 py-3 text-sm font-semibold text-lime-300">&#10022; {{ $translationNotice }}</div>
             @endif
 
             @if($translationError)
@@ -2733,7 +2733,7 @@ new class extends Component
                                 <div class="flex gap-2">
                                     <button type="button" wire:click="translateLanguage('{{ $locale }}')" wire:loading.attr="disabled"
                                             class="rounded-lg border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-black text-sky-300 transition hover:bg-sky-400/20 disabled:opacity-50">
-                                        вњ¦ AI Translate
+                                        &#10022; AI Translate
                                     </button>
                                     <button type="button" wire:click="removeLanguage('{{ $locale }}')"
                                             class="rounded-lg border border-red-400/15 bg-red-400/5 px-3 py-2 text-xs font-black text-red-300 transition hover:bg-red-400/10">
@@ -2895,7 +2895,7 @@ new class extends Component
                                 @foreach($selectedCountries as $country)
                                     <button type="button" wire:click="removeCountry({{ $country->id }})"
                                             class="inline-flex items-center gap-2 rounded-lg border border-lime-400/15 bg-lime-400/10 px-3 py-2 text-xs font-bold text-lime-300">
-                                        {{ $country->code }} В· {{ $country->name }} <span class="text-lime-200/60">Г—</span>
+                                        {{ $country->code }} &middot; {{ $country->name }} <span class="text-lime-200/60">&times;</span>
                                     </button>
                                 @endforeach
                             </div>
@@ -3104,7 +3104,7 @@ new class extends Component
                             class="inline-flex items-center justify-center rounded-xl bg-lime-400 px-6 py-3 text-sm font-black text-[#06111f] transition hover:bg-lime-300 disabled:opacity-50"
                         >
             <span wire:loading.remove wire:target="submitForReview">
-                Submit for Review в†’
+                Submit for Review &rarr;
             </span>
 
                             <span wire:loading wire:target="submitForReview">
